@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EUGREEN·Map of Collaborative Publications in Open Access</title>
+<style>
+  :root{
+    --bg-deep:#ffffff;
+    --bg-deep-2:#f4f6f4;
+    --panel:#f7f6f1;
+    --panel-2:#f0efe7;
+    --line:#dfe3dc;
+    --text:#1c2e28;
+    --text-dim:#4c6058;
+    --text-faint:#78897f;
+    --gold:#b8791f;
+    --gold-soft:#96631a;
+    --coral:#b0492c;
+    --sea-1:#e7f0ec;
+    --sea-2:#d3e6dd;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(120% 140% at 15% 0%, #f4f8f5 0%, var(--bg-deep) 45%, #ffffff 100%);
+    color:var(--text);
+    font-family: "Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .sans{font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+
+  header{
+    padding:28px 32px 18px;
+    display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:18px;
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; flex-direction:column; gap:4px;}
+  .brand .eyebrow{
+    font-family:inherit; font-size:13px; letter-spacing:.04em; color:var(--gold-soft); font-style:italic;
+  }
+  h1{
+    margin:0; font-weight:400; font-size:clamp(26px,3.4vw,38px); line-height:1.05;
+    color:var(--text); letter-spacing:.2px;
+  }
+  h1 em{color:var(--gold); font-style:italic;}
+  .subtitle{
+    margin:6px 0 0; color:var(--text-dim); font-size:15px; max-width:56ch; line-height:1.5;
+  }
+  .stats{display:flex; gap:26px; flex-wrap:wrap;}
+  .stat{text-align:right;}
+  .stat .n{font-size:26px; color:var(--gold-soft); line-height:1;}
+  .stat .l{display:block; font-family:inherit; font-size:12px; color:var(--text-faint); margin-top:4px; letter-spacing:.02em;}
+
+  main{
+    display:grid;
+    grid-template-columns: minmax(0,1fr) 380px;
+    gap:0;
+    align-items:stretch;
+  }
+  @media (max-width: 880px){
+    main{grid-template-columns: 1fr;}
+  }
+
+  .map-wrap{
+    position:relative;
+    padding:10px 6px 24px;
+    min-width:0;
+  }
+  .map-watermark{
+    position:absolute; right:26px; bottom:26px; z-index:4;
+    height:30px; width:auto; opacity:.9;
+    pointer-events:none;
+  }
+  .map-toolbar{
+    position:absolute; top:18px; left:26px; z-index:4;
+    display:flex; flex-direction:column; gap:10px;
+    background:rgba(255,255,255,.88);
+    border:1px solid var(--line);
+    border-radius:3px;
+    padding:12px 14px;
+    backdrop-filter:blur(3px);
+    max-width:230px;
+    box-shadow:0 4px 14px rgba(28,46,40,.08);
+  }
+  .map-toolbar .ttl{font-size:12px; color:var(--text-faint); letter-spacing:.03em;}
+  .legend-row{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim);}
+  .legend-line{display:inline-block; height:2px; background:var(--gold-soft); border-radius:2px;}
+  .legend-dot{display:inline-block; border-radius:50%; background:var(--gold); box-shadow:0 0 8px rgba(184,121,31,.4);}
+  .reset-btn{
+    margin-top:2px; align-self:flex-start;
+    font-family: inherit; font-size:12px; color:var(--bg-deep);
+    background:var(--gold-soft); border:none; border-radius:3px;
+    padding:6px 10px; cursor:pointer; letter-spacing:.02em;
+    opacity:0; pointer-events:none; transition:opacity .18s ease;
+  }
+  .reset-btn.show{opacity:1; pointer-events:auto;}
+  .reset-btn:hover{background:var(--gold);}
+
+  svg#map{
+    width:100%; height:auto; display:block;
+    max-height:82vh;
+  }
+  .land{ }
+  .land path{stroke:rgba(255,255,255,.5); stroke-width:.6; }
+
+  .edge{
+    stroke:var(--gold-soft);
+    stroke-linecap:round;
+    opacity:.34;
+    cursor:pointer;
+    transition:opacity .18s ease, stroke .18s ease;
+  }
+  .edge:hover{opacity:.85;}
+  .edge.dim{opacity:.06;}
+  .edge.active{opacity:1; stroke:var(--coral);}
+  .edge.lit{opacity:.8;}
+
+  .node{cursor:pointer;}
+  .node-halo{fill:var(--gold); opacity:0; transition:opacity .2s ease;}
+  .node:hover .node-halo, .node.active .node-halo{opacity:.16;}
+  .node-dot{
+    fill:var(--gold);
+    stroke:#1a1008; stroke-width:1.2;
+    filter:drop-shadow(0 0 6px rgba(184,121,31,.45));
+    transition:fill .18s ease, r .18s ease;
+  }
+  .node.dim .node-dot{fill:#7d6a45; opacity:.55;}
+  .node.active .node-dot{fill:var(--coral);}
+
+  .node-tag{
+    font-family: inherit; font-size:12.5px; fill:var(--text);
+    paint-order:stroke; stroke:#ffffff; stroke-width:3.2px; stroke-linejoin:round;
+    pointer-events:none;
+  }
+  .node-tag .cc{fill:var(--text-faint); font-style:italic; font-size:11px;}
+
+  .tooltip{
+    position:absolute; pointer-events:none; z-index:6;
+    background:#ffffff; border:1px solid var(--line); border-radius:3px;
+    padding:8px 11px; font-size:12.5px; color:var(--text); max-width:260px;
+    box-shadow:0 8px 22px rgba(28,46,40,.18);
+    opacity:0; transform:translate(-50%,-115%); transition:opacity .1s ease;
+  }
+  .tooltip.show{opacity:1;}
+  .tooltip b{color:var(--gold-soft); font-weight:600;}
+
+  /* ---- Side panel ---- */
+  aside{
+    border-left:1px solid var(--line);
+    background:linear-gradient(180deg, var(--panel), var(--panel-2));
+    padding:22px 24px 30px;
+    max-height:calc(100vh - 0px);
+    overflow:auto;
+  }
+  aside h2{
+    margin:0 0 4px; font-weight:400; font-size:20px; color:var(--gold-soft);
+    line-height:1.25;
+  }
+  aside .panel-sub{font-family:inherit;color:var(--text-faint); font-size:12.5px; margin:0 0 16px;}
+  .empty-state{color:var(--text-dim); font-size:14px; line-height:1.65;}
+  .empty-state .hint{font-family:inherit; margin-top:14px; font-size:12.5px; color:var(--text-faint); font-style:italic;}
+
+  .partner-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px;}
+  .partner-item{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 4px; border-bottom:1px solid rgba(28,46,40,.08);
+    cursor:pointer;
+  }
+  .partner-item:hover{background:rgba(184,121,31,.08);}
+  .partner-item .pname{font-size:14px; color:var(--text);}
+  .partner-item .pcc{font-family:inherit; font-size:11.5px; color:var(--text-faint); font-style:italic;}
+  .partner-item .pn{
+    font-family:inherit; font-size:12px; color:var(--bg-deep); background:var(--gold-soft);
+    border-radius:11px; padding:2px 9px; white-space:nowrap;
+  }
+
+  .back-link{
+    font-family:inherit; font-size:12.5px; color:var(--text-faint); cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px; margin-bottom:14px; user-select:none;
+  }
+  .back-link:hover{color:var(--gold-soft);}
+
+  .article-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:14px;}
+  .article{
+    padding-bottom:14px; border-bottom:1px solid rgba(28,46,40,.09);
+  }
+  .article .a-title{font-size:14.5px; line-height:1.4; color:var(--text);}
+  .article .a-meta{
+    font-family:inherit; font-size:12px; color:var(--text-faint); margin-top:5px;
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+  }
+  .article .a-year{color:var(--gold-soft);}
+  .article .a-doi{color:var(--text-dim); text-decoration:none; border-bottom:1px dotted var(--text-faint);}
+  .article .a-doi:hover{color:var(--gold-soft); border-color:var(--gold-soft);}
+
+  .search-box{margin:0 0 16px;}
+  .search-box input{
+    width:100%; font-family:inherit; font-size:13px; color:var(--text);
+    background:#ffffff; border:1px solid var(--line); border-radius:3px;
+    padding:9px 11px; outline:none;
+  }
+  .search-box input::placeholder{color:var(--text-faint);}
+  .search-box input:focus{border-color:var(--gold-soft);}
+
+  footer{
+    padding:16px 32px 26px; font-family:inherit; font-size:11.5px; color:var(--text-faint);
+    border-top:1px solid var(--line);
+  }
+
+  ::-webkit-scrollbar{width:9px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:#c7cfc7; border-radius:5px;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <span class="eyebrow sans">EUGREEN University Alliance</span>
+    <h1>EUGREEN Map of <em>Collaborative</em> Publications in Open Access </h1>
+    <p class="subtitle sans">Open access research publications co-authored, between 2022 and 2026, by at least two of the alliance's nine universities. Click a node to see its collaborations, or a line to see the shared articles.</p>
+  </div>
+  <div class="stats sans">
+    <div class="stat"><span class="n" id="statInst">9</span><span class="l">institutions</span></div>
+    <div class="stat"><span class="n" id="statPairs">20</span><span class="l">co-authoring pairs</span></div>
+    <div class="stat"><span class="n" id="statArticles">246</span><span class="l">joint articles</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="map-wrap">
+    <div class="map-toolbar sans">
+      <span class="ttl">Legend</span>
+      <div class="legend-row"><span class="legend-dot" style="width:9px;height:9px;"></span> fewer articles</div>
+      <div class="legend-row"><span class="legend-dot" style="width:20px;height:20px;"></span> more articles</div>
+      <div class="legend-row"><span class="legend-line" style="width:22px;"></span> co-authorship intensity</div>
+      <button class="reset-btn" id="resetBtn">View full map</button>
+    </div>
+    <img class="map-watermark" src="data:image/png;base64,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" alt="EU-GREEN alliance logo">
+    <svg id="map" viewBox="150 -110 700 850" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="seaGrad" cx="30%" cy="10%" r="90%">
+          <stop offset="0%" stop-color="var(--sea-2)"/>
+          <stop offset="100%" stop-color="var(--sea-1)"/>
+        </radialGradient>
+      </defs>
+      <rect x="-2000" y="-2000" width="5000" height="5000" fill="url(#seaGrad)"/>
+      <g class="land">
+<path d="M188.2,673.7 L184.8,659.2 L193.2,673.5 Z" fill="#336249"/>
+<path d="M346.0,591.3 L360.3,593.3 L354.8,609.5 Z" fill="#335e4e"/>
+<path d="M223.9,573.8 L232.9,535.6 L277.9,562.0 Z" fill="#3e7556"/>
+<path d="M365.8,577.0 L346.0,591.3 L347.4,562.2 Z" fill="#44735a"/>
+<path d="M346.0,591.3 L365.8,577.0 L360.3,593.3 Z" fill="#45745b"/>
+<path d="M386.1,535.1 L380.9,500.0 L400.2,523.5 Z" fill="#42785d"/>
+<path d="M380.9,500.0 L414.2,512.0 L400.2,523.5 Z" fill="#35644b"/>
+<path d="M324.5,467.7 L367.3,440.1 L379.8,491.0 Z" fill="#417859"/>
+<path d="M203.5,539.2 L206.3,506.9 L222.8,506.9 Z" fill="#264f3e"/>
+<path d="M194.7,637.1 L181.6,644.6 L178.2,630.1 Z" fill="#2c5544"/>
+<path d="M194.7,637.1 L184.8,659.2 L181.6,644.6 Z" fill="#335c4b"/>
+<path d="M340.7,361.0 L304.5,373.2 L308.6,350.3 Z" fill="#487f60"/>
+<path d="M304.5,373.2 L277.2,392.6 L284.7,365.7 Z" fill="#2e5746"/>
+<path d="M232.9,535.6 L249.2,524.2 L277.9,562.0 Z" fill="#38674e"/>
+<path d="M380.9,500.0 L342.7,506.6 L379.8,491.0 Z" fill="#4b8166"/>
+<path d="M813.5,432.4 L818.5,446.5 L803.1,442.7 Z" fill="#305b4b"/>
+<path d="M584.6,409.1 L575.7,427.2 L550.6,410.3 Z" fill="#447b5c"/>
+<path d="M552.4,438.6 L575.7,427.2 L574.8,451.2 Z" fill="#35644b"/>
+<path d="M575.7,427.2 L552.4,438.6 L550.6,410.3 Z" fill="#447a5f"/>
+<path d="M584.6,409.1 L594.8,432.7 L575.7,427.2 Z" fill="#376252"/>
+<path d="M347.4,624.9 L346.0,591.3 L354.8,609.5 Z" fill="#2e5746"/>
+<path d="M774.3,372.1 L746.1,377.9 L759.9,363.1 Z" fill="#417057"/>
+<path d="M659.6,377.1 L665.0,407.4 L650.1,411.9 Z" fill="#295241"/>
+<path d="M679.8,402.9 L665.0,407.4 L659.6,377.1 Z" fill="#43795e"/>
+<path d="M694.7,398.4 L679.8,402.9 L659.6,377.1 Z" fill="#2f5847"/>
+<path d="M663.4,355.4 L648.9,358.7 L645.2,342.6 Z" fill="#315a49"/>
+<path d="M614.2,360.0 L648.9,358.7 L659.6,377.1 Z" fill="#2c5544"/>
+<path d="M694.7,398.4 L678.8,358.8 L694.1,362.2 Z" fill="#34634a"/>
+<path d="M678.8,358.8 L694.7,398.4 L659.6,377.1 Z" fill="#437a5b"/>
+<path d="M531.6,251.7 L555.3,237.3 L577.5,286.1 Z" fill="#3a6950"/>
+<path d="M531.6,251.7 L519.1,291.5 L508.2,247.7 Z" fill="#3f6e55"/>
+<path d="M555.3,237.3 L569.3,239.9 L577.5,286.1 Z" fill="#3a6555"/>
+<path d="M569.3,239.9 L586.6,271.3 L577.5,286.1 Z" fill="#315c4c"/>
+<path d="M613.9,332.3 L585.7,358.4 L598.2,324.6 Z" fill="#376252"/>
+<path d="M225.4,539.8 L203.5,539.2 L222.8,506.9 Z" fill="#42795a"/>
+<path d="M206.3,506.9 L193.3,515.8 L189.8,506.9 Z" fill="#38674e"/>
+<path d="M203.5,539.2 L193.3,515.8 L206.3,506.9 Z" fill="#2d5645"/>
+<path d="M184.8,659.2 L209.5,644.3 L193.2,673.5 Z" fill="#487f60"/>
+<path d="M194.7,637.1 L209.5,644.3 L184.8,659.2 Z" fill="#497f64"/>
+<path d="M206.5,618.6 L209.5,644.3 L194.7,637.1 Z" fill="#2d5645"/>
+<path d="M265.2,666.7 L259.1,689.1 L247.1,663.1 Z" fill="#2d5848"/>
+<path d="M312.4,652.2 L326.8,658.3 L305.3,671.1 Z" fill="#3b7253"/>
+<path d="M360.6,561.8 L365.8,577.0 L347.4,562.2 Z" fill="#386353"/>
+<path d="M360.6,561.8 L371.3,560.8 L365.8,577.0 Z" fill="#2e5949"/>
+<path d="M345.5,550.8 L360.6,561.8 L347.4,562.2 Z" fill="#4c8364"/>
+<path d="M418.4,408.5 L384.4,393.8 L403.1,377.0 Z" fill="#325d4d"/>
+<path d="M384.4,393.8 L379.5,366.8 L403.1,377.0 Z" fill="#4d8368"/>
+<path d="M277.2,392.6 L272.7,373.4 L284.7,365.7 Z" fill="#457b60"/>
+<path d="M277.2,392.6 L302.8,394.9 L293.8,404.2 Z" fill="#305b4b"/>
+<path d="M304.5,373.2 L302.8,394.9 L277.2,392.6 Z" fill="#4b8263"/>
+<path d="M422.4,277.5 L412.9,315.6 L409.2,288.7 Z" fill="#2e5746"/>
+<path d="M390.9,327.8 L399.3,347.7 L382.4,352.8 Z" fill="#335c4b"/>
+<path d="M390.9,327.8 L412.9,315.6 L399.3,347.7 Z" fill="#325b4a"/>
+<path d="M361.3,323.9 L359.8,316.9 L373.8,311.8 Z" fill="#335e4e"/>
+<path d="M359.8,316.9 L361.3,323.9 L347.0,325.2 Z" fill="#4a8162"/>
+<path d="M324.5,467.7 L328.8,452.2 L367.3,440.1 Z" fill="#43795e"/>
+<path d="M328.9,440.8 L305.6,451.4 L303.6,437.5 Z" fill="#36654c"/>
+<path d="M272.3,509.4 L249.2,524.2 L255.8,508.6 Z" fill="#3f7657"/>
+<path d="M399.3,347.7 L397.0,351.2 L382.4,352.8 Z" fill="#43795e"/>
+<path d="M397.0,351.2 L379.5,366.8 L382.4,352.8 Z" fill="#4d8368"/>
+<path d="M379.5,366.8 L397.0,351.2 L403.1,377.0 Z" fill="#345d4c"/>
+<path d="M397.0,351.2 L415.7,374.3 L403.1,377.0 Z" fill="#2e5746"/>
+<path d="M415.7,374.3 L397.0,351.2 L399.3,347.7 Z" fill="#264f3e"/>
+<path d="M239.3,507.7 L235.7,517.4 L222.8,506.9 Z" fill="#44735a"/>
+<path d="M235.7,517.4 L225.4,539.8 L222.8,506.9 Z" fill="#366151"/>
+<path d="M225.4,539.8 L235.7,517.4 L232.9,535.6 Z" fill="#3c6b52"/>
+<path d="M360.6,561.8 L378.7,547.9 L371.3,560.8 Z" fill="#467c61"/>
+<path d="M378.7,547.9 L360.6,561.8 L345.5,550.8 Z" fill="#41775c"/>
+<path d="M727.5,515.5 L739.2,535.1 L726.9,545.4 Z" fill="#3c6757"/>
+<path d="M745.8,496.6 L727.5,515.5 L731.8,495.3 Z" fill="#4a8162"/>
+<path d="M727.5,515.5 L717.8,494.0 L731.8,495.3 Z" fill="#3c6b52"/>
+<path d="M699.8,532.2 L727.5,515.5 L726.9,545.4 Z" fill="#2c5544"/>
+<path d="M699.8,532.2 L717.8,494.0 L727.5,515.5 Z" fill="#457c5d"/>
+<path d="M606.9,401.7 L594.8,432.7 L584.6,409.1 Z" fill="#4b8263"/>
+<path d="M635.3,422.1 L606.9,401.7 L650.1,411.9 Z" fill="#264f3e"/>
+<path d="M606.9,401.7 L659.6,377.1 L650.1,411.9 Z" fill="#305948"/>
+<path d="M606.9,401.7 L614.2,360.0 L659.6,377.1 Z" fill="#41775c"/>
+<path d="M516.6,498.7 L520.6,524.8 L510.3,513.3 Z" fill="#3e6d54"/>
+<path d="M714.5,555.6 L703.5,569.3 L690.7,553.9 Z" fill="#335e4e"/>
+<path d="M714.5,555.6 L699.8,532.2 L726.9,545.4 Z" fill="#3a6950"/>
+<path d="M699.8,532.2 L714.5,555.6 L690.7,553.9 Z" fill="#285140"/>
+<path d="M651.2,483.6 L641.9,463.2 L660.9,463.2 Z" fill="#427158"/>
+<path d="M794.9,393.9 L794.4,395.1 L788.8,381.1 Z" fill="#44735a"/>
+<path d="M788.8,411.9 L801.1,406.7 L807.3,419.6 Z" fill="#3e7556"/>
+<path d="M801.1,406.7 L788.8,411.9 L794.4,395.1 Z" fill="#52886d"/>
+<path d="M794.9,393.9 L801.1,406.7 L794.4,395.1 Z" fill="#42795a"/>
+<path d="M794.4,395.1 L778.4,398.7 L788.8,381.1 Z" fill="#335c4b"/>
+<path d="M788.8,411.9 L778.4,398.7 L794.4,395.1 Z" fill="#4b8263"/>
+<path d="M732.1,359.5 L731.0,345.1 L745.4,354.1 Z" fill="#437a5b"/>
+<path d="M732.1,359.5 L720.3,355.4 L731.0,345.1 Z" fill="#4c8267"/>
+<path d="M732.1,359.5 L720.7,361.4 L720.3,355.4 Z" fill="#51876c"/>
+<path d="M726.0,396.5 L746.1,377.9 L742.5,399.0 Z" fill="#447a5f"/>
+<path d="M648.9,358.7 L657.7,366.5 L659.6,377.1 Z" fill="#417859"/>
+<path d="M657.7,366.5 L648.9,358.7 L663.4,355.4 Z" fill="#3d6c53"/>
+<path d="M648.9,358.7 L637.4,348.2 L645.2,342.6 Z" fill="#45745b"/>
+<path d="M637.4,348.2 L648.9,358.7 L614.2,360.0 Z" fill="#2d5645"/>
+<path d="M468.6,250.2 L479.1,278.2 L448.9,255.3 Z" fill="#2d5645"/>
+<path d="M519.1,291.5 L483.5,272.8 L508.2,247.7 Z" fill="#35644b"/>
+<path d="M468.6,250.2 L483.5,272.8 L479.1,278.2 Z" fill="#3a6950"/>
+<path d="M483.5,272.8 L500.9,306.4 L479.1,278.2 Z" fill="#34634a"/>
+<path d="M514.9,237.3 L531.6,251.7 L508.2,247.7 Z" fill="#2e5949"/>
+<path d="M637.4,348.2 L629.5,337.4 L645.2,342.6 Z" fill="#2d5645"/>
+<path d="M613.9,332.3 L629.5,337.4 L614.2,360.0 Z" fill="#3b6656"/>
+<path d="M629.5,337.4 L637.4,348.2 L614.2,360.0 Z" fill="#4b8263"/>
+<path d="M569.3,239.9 L588.8,261.0 L586.6,271.3 Z" fill="#4c8364"/>
+<path d="M587.5,232.2 L604.8,241.8 L595.7,256.6 Z" fill="#355e4d"/>
+<path d="M587.5,232.2 L588.8,261.0 L569.3,239.9 Z" fill="#498061"/>
+<path d="M570.0,377.6 L546.2,368.1 L558.3,346.7 Z" fill="#477d62"/>
+<path d="M546.2,368.1 L518.2,335.2 L558.3,346.7 Z" fill="#36654c"/>
+<path d="M583.4,390.8 L584.6,409.1 L550.6,410.3 Z" fill="#4c8267"/>
+<path d="M570.0,377.6 L583.4,390.8 L550.6,410.3 Z" fill="#4e8469"/>
+<path d="M601.5,364.8 L613.9,332.3 L614.2,360.0 Z" fill="#42785d"/>
+<path d="M601.5,364.8 L585.7,358.4 L613.9,332.3 Z" fill="#34634a"/>
+<path d="M601.5,364.8 L606.9,401.7 L588.8,392.8 Z" fill="#4b8166"/>
+<path d="M606.9,401.7 L601.5,364.8 L614.2,360.0 Z" fill="#3a6950"/>
+<path d="M524.0,395.6 L537.8,409.2 L512.4,404.1 Z" fill="#407758"/>
+<path d="M505.6,331.8 L494.1,333.6 L498.9,326.4 Z" fill="#345d4c"/>
+<path d="M571.0,314.3 L582.5,316.9 L558.3,346.7 Z" fill="#477e5f"/>
+<path d="M585.7,358.4 L582.5,316.9 L598.2,324.6 Z" fill="#42795a"/>
+<path d="M582.5,316.9 L585.7,358.4 L558.3,346.7 Z" fill="#487e63"/>
+<path d="M574.4,292.5 L531.6,251.7 L577.5,286.1 Z" fill="#417057"/>
+<path d="M531.6,251.7 L574.4,292.5 L519.1,291.5 Z" fill="#295241"/>
+<path d="M515.1,298.3 L507.9,312.1 L500.9,306.4 Z" fill="#44735a"/>
+<path d="M515.1,298.3 L483.5,272.8 L519.1,291.5 Z" fill="#35644b"/>
+<path d="M483.5,272.8 L515.1,298.3 L500.9,306.4 Z" fill="#3f7657"/>
+<path d="M558.3,318.9 L571.0,314.3 L558.3,346.7 Z" fill="#50866b"/>
+<path d="M574.4,292.5 L558.3,318.9 L519.1,291.5 Z" fill="#477d62"/>
+<path d="M199.1,558.9 L217.4,555.1 L223.9,573.8 Z" fill="#42785d"/>
+<path d="M217.4,555.1 L232.9,535.6 L223.9,573.8 Z" fill="#467d5e"/>
+<path d="M217.4,555.1 L225.4,539.8 L232.9,535.6 Z" fill="#3f6e55"/>
+<path d="M225.4,539.8 L217.4,555.1 L203.5,539.2 Z" fill="#3a6555"/>
+<path d="M217.4,555.1 L199.1,558.9 L203.5,539.2 Z" fill="#396454"/>
+<path d="M182.3,622.9 L194.7,637.1 L178.2,630.1 Z" fill="#355e4d"/>
+<path d="M182.3,622.9 L206.5,618.6 L194.7,637.1 Z" fill="#407758"/>
+<path d="M227.8,686.5 L225.0,667.5 L247.1,663.1 Z" fill="#325d4d"/>
+<path d="M245.7,693.5 L259.1,689.1 L242.6,696.8 Z" fill="#45745b"/>
+<path d="M259.1,689.1 L245.7,693.5 L247.1,663.1 Z" fill="#27503f"/>
+<path d="M227.8,686.5 L245.7,693.5 L242.6,696.8 Z" fill="#2d5848"/>
+<path d="M245.7,693.5 L227.8,686.5 L247.1,663.1 Z" fill="#45745b"/>
+<path d="M243.9,618.3 L245.9,618.8 L232.3,628.5 Z" fill="#51876c"/>
+<path d="M275.6,681.4 L265.2,666.7 L282.3,666.6 Z" fill="#2b5443"/>
+<path d="M265.2,666.7 L275.6,681.4 L259.1,689.1 Z" fill="#437259"/>
+<path d="M290.5,676.3 L275.6,681.4 L282.3,666.6 Z" fill="#38674e"/>
+<path d="M297.9,666.4 L312.4,652.2 L305.3,671.1 Z" fill="#35644b"/>
+<path d="M290.5,676.3 L297.9,666.4 L305.3,671.1 Z" fill="#467d5e"/>
+<path d="M297.9,666.4 L290.5,676.3 L282.3,666.6 Z" fill="#45745b"/>
+<path d="M277.2,641.8 L297.9,666.4 L282.3,666.6 Z" fill="#4c8364"/>
+<path d="M297.9,666.4 L277.2,641.8 L312.4,652.2 Z" fill="#27503f"/>
+<path d="M437.6,347.4 L449.2,344.1 L442.6,356.5 Z" fill="#285140"/>
+<path d="M449.2,344.1 L468.2,349.5 L442.6,356.5 Z" fill="#53896e"/>
+<path d="M379.5,366.8 L378.0,391.3 L358.8,388.8 Z" fill="#365f4e"/>
+<path d="M384.4,393.8 L378.0,391.3 L379.5,366.8 Z" fill="#345f4f"/>
+<path d="M367.3,440.1 L388.6,468.1 L379.8,491.0 Z" fill="#447b5c"/>
+<path d="M388.6,468.1 L406.5,439.5 L417.5,461.5 Z" fill="#42795a"/>
+<path d="M537.8,409.2 L535.5,429.0 L512.4,404.1 Z" fill="#457b60"/>
+<path d="M511.5,442.6 L535.5,429.0 L535.7,431.1 Z" fill="#3a6555"/>
+<path d="M535.5,429.0 L511.5,442.6 L512.4,404.1 Z" fill="#2e5949"/>
+<path d="M535.5,429.0 L537.8,409.2 L550.6,410.3 Z" fill="#417057"/>
+<path d="M552.4,438.6 L535.5,429.0 L550.6,410.3 Z" fill="#386150"/>
+<path d="M535.5,429.0 L552.4,438.6 L535.7,431.1 Z" fill="#35644b"/>
+<path d="M537.8,409.2 L544.0,399.0 L550.6,410.3 Z" fill="#2c5544"/>
+<path d="M544.0,399.0 L570.0,377.6 L550.6,410.3 Z" fill="#2e5746"/>
+<path d="M544.0,399.0 L524.0,395.6 L541.0,388.3 Z" fill="#457c5d"/>
+<path d="M524.0,395.6 L544.0,399.0 L537.8,409.2 Z" fill="#3a6950"/>
+<path d="M500.0,501.7 L516.6,498.7 L510.3,513.3 Z" fill="#356050"/>
+<path d="M269.0,385.3 L277.2,392.6 L260.8,381.1 Z" fill="#487f60"/>
+<path d="M272.7,373.4 L269.0,385.3 L260.8,381.1 Z" fill="#2f5847"/>
+<path d="M269.0,385.3 L272.7,373.4 L277.2,392.6 Z" fill="#365f4e"/>
+<path d="M301.8,365.1 L304.5,373.2 L284.7,365.7 Z" fill="#44735a"/>
+<path d="M296.6,358.0 L301.8,365.1 L284.7,365.7 Z" fill="#2f5a4a"/>
+<path d="M304.5,373.2 L301.8,365.1 L308.6,350.3 Z" fill="#42795a"/>
+<path d="M301.8,365.1 L296.6,358.0 L308.6,350.3 Z" fill="#36654c"/>
+<path d="M337.9,338.4 L332.5,344.6 L329.7,339.2 Z" fill="#2a5342"/>
+<path d="M332.5,344.6 L321.4,341.9 L329.7,339.2 Z" fill="#356050"/>
+<path d="M334.2,333.6 L337.9,338.4 L329.7,339.2 Z" fill="#2c5544"/>
+<path d="M321.4,341.9 L334.2,333.6 L329.7,339.2 Z" fill="#325d4d"/>
+<path d="M415.7,374.3 L419.5,379.4 L403.1,377.0 Z" fill="#3c6757"/>
+<path d="M379.7,318.5 L361.3,323.9 L373.8,311.8 Z" fill="#497f64"/>
+<path d="M374.5,332.5 L390.9,327.8 L382.4,352.8 Z" fill="#35644b"/>
+<path d="M379.7,318.5 L374.5,332.5 L361.3,323.9 Z" fill="#497f64"/>
+<path d="M374.5,332.5 L379.7,318.5 L390.9,327.8 Z" fill="#336249"/>
+<path d="M379.5,366.8 L377.8,364.5 L382.4,352.8 Z" fill="#305b4b"/>
+<path d="M353.1,339.9 L377.8,364.5 L340.7,361.0 Z" fill="#315c4c"/>
+<path d="M377.8,364.5 L358.8,388.8 L340.7,361.0 Z" fill="#52886d"/>
+<path d="M377.8,364.5 L379.5,366.8 L358.8,388.8 Z" fill="#52886d"/>
+<path d="M353.1,339.9 L339.1,348.1 L337.9,338.4 Z" fill="#36654c"/>
+<path d="M339.1,348.1 L332.5,344.6 L337.9,338.4 Z" fill="#37664d"/>
+<path d="M346.2,334.0 L353.1,339.9 L337.9,338.4 Z" fill="#27503f"/>
+<path d="M346.2,334.0 L334.2,333.6 L347.0,325.2 Z" fill="#3e6959"/>
+<path d="M334.2,333.6 L346.2,334.0 L337.9,338.4 Z" fill="#2a5342"/>
+<path d="M329.1,447.6 L328.9,440.8 L367.3,440.1 Z" fill="#457b60"/>
+<path d="M328.8,452.2 L329.1,447.6 L367.3,440.1 Z" fill="#3c6b52"/>
+<path d="M329.1,447.6 L305.6,451.4 L328.9,440.8 Z" fill="#2d5848"/>
+<path d="M305.6,451.4 L329.1,447.6 L328.8,452.2 Z" fill="#325d4d"/>
+<path d="M305.6,451.4 L307.9,461.6 L307.6,465.3 Z" fill="#3d7455"/>
+<path d="M307.9,461.6 L305.6,451.4 L328.8,452.2 Z" fill="#3d6858"/>
+<path d="M307.6,465.3 L307.9,461.6 L324.5,467.7 Z" fill="#457b60"/>
+<path d="M307.9,461.6 L328.8,452.2 L324.5,467.7 Z" fill="#3f7657"/>
+<path d="M309.6,479.1 L307.6,465.3 L324.5,467.7 Z" fill="#477e5f"/>
+<path d="M249.2,524.2 L283.9,552.2 L277.9,562.0 Z" fill="#38674e"/>
+<path d="M272.3,509.4 L283.9,552.2 L249.2,524.2 Z" fill="#396454"/>
+<path d="M283.9,552.2 L272.3,509.4 L288.8,510.7 Z" fill="#42795a"/>
+<path d="M305.3,512.0 L283.9,552.2 L288.8,510.7 Z" fill="#3d7455"/>
+<path d="M283.9,552.2 L305.3,512.0 L315.0,517.6 Z" fill="#42785d"/>
+<path d="M345.5,550.8 L283.9,552.2 L315.0,517.6 Z" fill="#487e63"/>
+<path d="M240.1,525.0 L249.2,524.2 L232.9,535.6 Z" fill="#487f60"/>
+<path d="M235.7,517.4 L240.1,525.0 L232.9,535.6 Z" fill="#356050"/>
+<path d="M245.0,523.1 L235.7,517.4 L239.3,507.7 Z" fill="#417859"/>
+<path d="M245.0,523.1 L239.3,507.7 L255.8,508.6 Z" fill="#39684f"/>
+<path d="M249.2,524.2 L245.0,523.1 L255.8,508.6 Z" fill="#4b8166"/>
+<path d="M240.1,525.0 L245.0,523.1 L249.2,524.2 Z" fill="#2e5949"/>
+<path d="M245.0,523.1 L240.1,525.0 L235.7,517.4 Z" fill="#376252"/>
+<path d="M378.7,547.9 L349.4,526.8 L386.1,535.1 Z" fill="#325b4a"/>
+<path d="M349.4,526.8 L378.7,547.9 L345.5,550.8 Z" fill="#305948"/>
+<path d="M349.4,526.8 L380.9,500.0 L386.1,535.1 Z" fill="#36654c"/>
+<path d="M349.4,526.8 L342.7,506.6 L380.9,500.0 Z" fill="#315c4c"/>
+<path d="M349.4,526.8 L345.5,550.8 L315.0,517.6 Z" fill="#2e5746"/>
+<path d="M342.7,506.6 L349.4,526.8 L315.0,517.6 Z" fill="#36654c"/>
+<path d="M335.7,494.7 L324.5,467.7 L379.8,491.0 Z" fill="#335c4b"/>
+<path d="M342.7,506.6 L335.7,494.7 L379.8,491.0 Z" fill="#366151"/>
+<path d="M791.6,510.7 L784.9,487.2 L800.3,499.1 Z" fill="#51876c"/>
+<path d="M752.5,540.2 L774.3,533.8 L765.6,545.4 Z" fill="#3f6e55"/>
+<path d="M818.5,446.5 L810.2,458.1 L803.1,442.7 Z" fill="#2c5544"/>
+<path d="M810.2,458.1 L818.5,446.5 L823.4,460.6 Z" fill="#2d5848"/>
+<path d="M806.9,463.2 L810.2,458.1 L823.4,460.6 Z" fill="#41775c"/>
+<path d="M705.1,483.8 L677.2,497.0 L691.3,482.2 Z" fill="#37604f"/>
+<path d="M699.8,532.2 L677.2,497.0 L717.8,494.0 Z" fill="#457c5d"/>
+<path d="M677.2,497.0 L705.1,483.8 L717.8,494.0 Z" fill="#43795e"/>
+<path d="M552.4,438.6 L548.7,468.3 L535.7,431.1 Z" fill="#366151"/>
+<path d="M548.7,468.3 L511.5,442.6 L535.7,431.1 Z" fill="#3c6b52"/>
+<path d="M587.5,524.8 L600.6,517.1 L611.8,550.6 Z" fill="#2f5847"/>
+<path d="M520.6,524.8 L538.6,520.0 L530.9,536.4 Z" fill="#4b8166"/>
+<path d="M538.6,520.0 L520.6,524.8 L516.6,498.7 Z" fill="#4a8065"/>
+<path d="M606.9,401.7 L590.4,398.8 L588.8,392.8 Z" fill="#2a5342"/>
+<path d="M590.4,398.8 L606.9,401.7 L584.6,409.1 Z" fill="#477e5f"/>
+<path d="M590.4,398.8 L583.4,390.8 L588.8,392.8 Z" fill="#467c61"/>
+<path d="M583.4,390.8 L590.4,398.8 L584.6,409.1 Z" fill="#386150"/>
+<path d="M622.2,423.9 L635.3,422.1 L620.5,432.4 Z" fill="#386353"/>
+<path d="M622.2,423.9 L606.9,401.7 L635.3,422.1 Z" fill="#264f3e"/>
+<path d="M575.7,427.2 L580.8,447.4 L574.8,451.2 Z" fill="#356050"/>
+<path d="M580.8,447.4 L590.2,447.0 L574.8,451.2 Z" fill="#477e5f"/>
+<path d="M594.8,432.7 L580.8,447.4 L575.7,427.2 Z" fill="#305948"/>
+<path d="M590.2,447.0 L580.8,447.4 L594.8,432.7 Z" fill="#4f856a"/>
+<path d="M605.6,442.7 L590.2,447.0 L594.8,432.7 Z" fill="#477d62"/>
+<path d="M592.1,629.6 L615.5,622.4 L597.4,642.9 Z" fill="#355e4d"/>
+<path d="M615.5,622.4 L599.5,601.7 L612.8,604.4 Z" fill="#3c7354"/>
+<path d="M571.0,576.2 L588.8,553.7 L595.9,585.1 Z" fill="#3c6757"/>
+<path d="M607.2,568.5 L588.8,553.7 L611.8,550.6 Z" fill="#305948"/>
+<path d="M599.5,601.7 L610.0,586.4 L612.8,604.4 Z" fill="#3a6950"/>
+<path d="M610.0,586.4 L599.5,601.7 L595.9,585.1 Z" fill="#335e4e"/>
+<path d="M692.5,572.9 L683.4,561.7 L690.7,553.9 Z" fill="#3e7556"/>
+<path d="M681.5,596.7 L670.9,592.3 L692.5,583.0 Z" fill="#34634a"/>
+<path d="M670.9,592.3 L681.5,596.7 L665.0,617.2 Z" fill="#498061"/>
+<path d="M648.5,596.7 L670.9,592.3 L665.0,617.2 Z" fill="#285140"/>
+<path d="M670.9,592.3 L648.5,596.7 L651.5,591.2 Z" fill="#4e8469"/>
+<path d="M779.3,378.3 L774.3,372.1 L788.8,381.1 Z" fill="#2c5544"/>
+<path d="M778.4,398.7 L779.3,378.3 L788.8,381.1 Z" fill="#50866b"/>
+<path d="M732.1,359.5 L743.1,370.9 L720.7,361.4 Z" fill="#487e63"/>
+<path d="M726.0,396.5 L743.1,370.9 L746.1,377.9 Z" fill="#3a7152"/>
+<path d="M743.1,370.9 L726.0,396.5 L720.7,361.4 Z" fill="#406f56"/>
+<path d="M743.1,370.9 L732.1,359.5 L745.4,354.1 Z" fill="#3f7657"/>
+<path d="M759.9,363.1 L743.1,370.9 L745.4,354.1 Z" fill="#345d4c"/>
+<path d="M746.1,377.9 L743.1,370.9 L759.9,363.1 Z" fill="#44735a"/>
+<path d="M709.5,393.9 L694.7,398.4 L694.1,362.2 Z" fill="#3d7455"/>
+<path d="M678.8,358.8 L668.2,359.6 L663.4,355.4 Z" fill="#457b60"/>
+<path d="M668.2,359.6 L657.7,366.5 L663.4,355.4 Z" fill="#51876c"/>
+<path d="M668.2,359.6 L678.8,358.8 L659.6,377.1 Z" fill="#305948"/>
+<path d="M657.7,366.5 L668.2,359.6 L659.6,377.1 Z" fill="#51876c"/>
+<path d="M483.5,272.8 L489.7,247.3 L508.2,247.7 Z" fill="#52886d"/>
+<path d="M489.7,247.3 L468.6,250.2 L483.5,243.7 Z" fill="#467c61"/>
+<path d="M489.7,247.3 L483.5,272.8 L468.6,250.2 Z" fill="#4f856a"/>
+<path d="M531.6,251.7 L541.2,234.8 L555.3,237.3 Z" fill="#335e4e"/>
+<path d="M514.9,237.3 L541.2,234.8 L531.6,251.7 Z" fill="#3c6757"/>
+<path d="M586.6,271.3 L592.9,258.7 L595.7,256.6 Z" fill="#487e63"/>
+<path d="M588.8,261.0 L592.9,258.7 L586.6,271.3 Z" fill="#3a6555"/>
+<path d="M592.9,258.7 L587.5,232.2 L595.7,256.6 Z" fill="#3c6b52"/>
+<path d="M587.5,232.2 L592.9,258.7 L588.8,261.0 Z" fill="#42795a"/>
+<path d="M613.9,227.1 L604.8,241.8 L605.6,228.8 Z" fill="#366151"/>
+<path d="M604.8,241.8 L599.6,232.5 L605.6,228.8 Z" fill="#285140"/>
+<path d="M599.6,232.5 L587.5,232.2 L605.6,228.8 Z" fill="#3e7556"/>
+<path d="M587.5,232.2 L599.6,232.5 L604.8,241.8 Z" fill="#467d5e"/>
+<path d="M546.2,368.1 L551.3,376.9 L541.0,388.3 Z" fill="#407758"/>
+<path d="M551.3,376.9 L546.2,368.1 L570.0,377.6 Z" fill="#406f56"/>
+<path d="M551.3,376.9 L544.0,399.0 L541.0,388.3 Z" fill="#4b8166"/>
+<path d="M544.0,399.0 L551.3,376.9 L570.0,377.6 Z" fill="#345d4c"/>
+<path d="M582.8,367.3 L583.4,390.8 L570.0,377.6 Z" fill="#42785d"/>
+<path d="M582.8,367.3 L570.0,377.6 L558.3,346.7 Z" fill="#477e5f"/>
+<path d="M585.7,358.4 L582.8,367.3 L558.3,346.7 Z" fill="#53896e"/>
+<path d="M504.0,319.4 L505.6,331.8 L498.9,326.4 Z" fill="#45745b"/>
+<path d="M518.2,335.2 L525.3,324.8 L558.3,346.7 Z" fill="#50866b"/>
+<path d="M525.3,324.8 L558.3,318.9 L558.3,346.7 Z" fill="#3e6d54"/>
+<path d="M515.1,298.3 L525.3,324.8 L507.9,312.1 Z" fill="#386353"/>
+<path d="M525.3,324.8 L515.1,298.3 L519.1,291.5 Z" fill="#52886d"/>
+<path d="M558.3,318.9 L525.3,324.8 L519.1,291.5 Z" fill="#2d5645"/>
+<path d="M525.3,324.8 L504.0,319.4 L507.9,312.1 Z" fill="#487e63"/>
+<path d="M505.6,331.8 L525.3,324.8 L518.2,335.2 Z" fill="#396454"/>
+<path d="M504.0,319.4 L525.3,324.8 L505.6,331.8 Z" fill="#41775c"/>
+<path d="M558.3,318.9 L574.2,300.2 L571.0,314.3 Z" fill="#4b8166"/>
+<path d="M574.2,300.2 L558.3,318.9 L574.4,292.5 Z" fill="#467c61"/>
+<path d="M574.2,300.2 L574.4,292.5 L577.5,286.1 Z" fill="#457b60"/>
+<path d="M189.8,564.6 L199.1,558.9 L191.4,581.3 Z" fill="#37604f"/>
+<path d="M182.7,613.8 L187.0,597.5 L206.5,618.6 Z" fill="#3f6e55"/>
+<path d="M182.3,622.9 L182.7,613.8 L206.5,618.6 Z" fill="#386150"/>
+<path d="M182.7,613.8 L182.3,622.9 L178.2,630.1 Z" fill="#35644b"/>
+<path d="M216.3,586.7 L199.1,558.9 L223.9,573.8 Z" fill="#457b60"/>
+<path d="M199.1,558.9 L216.3,586.7 L191.4,581.3 Z" fill="#467c61"/>
+<path d="M187.0,597.5 L203.8,593.4 L206.5,618.6 Z" fill="#3b6a51"/>
+<path d="M203.8,593.4 L215.9,591.8 L206.5,618.6 Z" fill="#4b8166"/>
+<path d="M232.8,621.4 L243.9,618.3 L232.3,628.5 Z" fill="#487f60"/>
+<path d="M221.2,631.6 L232.8,621.4 L232.3,628.5 Z" fill="#366151"/>
+<path d="M232.8,621.4 L221.2,631.6 L206.5,618.6 Z" fill="#497f64"/>
+<path d="M220.8,634.0 L209.5,644.3 L206.5,618.6 Z" fill="#497f64"/>
+<path d="M221.2,631.6 L220.8,634.0 L206.5,618.6 Z" fill="#427158"/>
+<path d="M220.8,634.0 L221.2,631.6 L232.3,628.5 Z" fill="#44735a"/>
+<path d="M212.9,676.3 L225.0,667.5 L227.8,686.5 Z" fill="#3e6d54"/>
+<path d="M209.5,644.3 L212.9,676.3 L193.2,673.5 Z" fill="#3c7354"/>
+<path d="M225.0,667.5 L212.9,676.3 L209.5,644.3 Z" fill="#336249"/>
+<path d="M346.0,591.3 L321.1,583.1 L347.4,562.2 Z" fill="#407758"/>
+<path d="M347.4,624.9 L321.1,583.1 L346.0,591.3 Z" fill="#37664d"/>
+<path d="M293.4,596.7 L321.1,583.1 L347.4,624.9 Z" fill="#3e7556"/>
+<path d="M321.1,583.1 L345.5,550.8 L347.4,562.2 Z" fill="#447a5f"/>
+<path d="M327.5,648.2 L347.4,624.9 L339.9,640.3 Z" fill="#2c5544"/>
+<path d="M327.5,648.2 L293.4,596.7 L347.4,624.9 Z" fill="#497f64"/>
+<path d="M293.4,596.7 L327.5,648.2 L312.4,652.2 Z" fill="#315c4c"/>
+<path d="M327.5,648.2 L339.9,640.3 L326.8,658.3 Z" fill="#295241"/>
+<path d="M312.4,652.2 L327.5,648.2 L326.8,658.3 Z" fill="#437a5b"/>
+<path d="M286.0,588.5 L287.1,594.6 L272.6,614.4 Z" fill="#45745b"/>
+<path d="M287.1,594.6 L293.4,596.7 L272.6,614.4 Z" fill="#3c6b52"/>
+<path d="M293.4,596.7 L287.1,594.6 L286.0,588.5 Z" fill="#325b4a"/>
+<path d="M265.2,666.7 L274.6,658.4 L282.3,666.6 Z" fill="#477d62"/>
+<path d="M274.6,658.4 L277.2,641.8 L282.3,666.6 Z" fill="#45745b"/>
+<path d="M278.5,622.3 L245.9,618.8 L272.6,614.4 Z" fill="#3d7455"/>
+<path d="M278.5,622.3 L277.2,641.8 L245.9,618.8 Z" fill="#2f5a4a"/>
+<path d="M293.4,596.7 L278.5,622.3 L272.6,614.4 Z" fill="#27503f"/>
+<path d="M278.5,622.3 L293.4,596.7 L312.4,652.2 Z" fill="#3d6858"/>
+<path d="M277.2,641.8 L278.5,622.3 L312.4,652.2 Z" fill="#4c8267"/>
+<path d="M277.2,641.8 L262.8,654.1 L245.9,618.8 Z" fill="#437259"/>
+<path d="M262.8,654.1 L247.1,663.1 L232.3,628.5 Z" fill="#2c5747"/>
+<path d="M245.9,618.8 L262.8,654.1 L232.3,628.5 Z" fill="#50866b"/>
+<path d="M274.6,658.4 L262.8,654.1 L277.2,641.8 Z" fill="#406f56"/>
+<path d="M262.8,654.1 L265.2,666.7 L247.1,663.1 Z" fill="#3a6555"/>
+<path d="M262.8,654.1 L274.6,658.4 L265.2,666.7 Z" fill="#477e5f"/>
+<path d="M437.6,347.4 L440.2,334.8 L449.2,344.1 Z" fill="#4a8162"/>
+<path d="M498.1,310.9 L504.0,319.4 L498.9,326.4 Z" fill="#3d6858"/>
+<path d="M507.9,312.1 L498.1,310.9 L500.9,306.4 Z" fill="#4f856a"/>
+<path d="M504.0,319.4 L498.1,310.9 L507.9,312.1 Z" fill="#53896e"/>
+<path d="M427.6,341.1 L415.7,374.3 L399.3,347.7 Z" fill="#366151"/>
+<path d="M427.6,341.1 L437.6,347.4 L415.7,374.3 Z" fill="#3c7354"/>
+<path d="M427.6,341.1 L412.9,315.6 L428.6,328.1 Z" fill="#3a6555"/>
+<path d="M412.9,315.6 L427.6,341.1 L399.3,347.7 Z" fill="#487f60"/>
+<path d="M440.2,334.8 L427.6,341.1 L428.6,328.1 Z" fill="#325b4a"/>
+<path d="M427.6,341.1 L440.2,334.8 L437.6,347.4 Z" fill="#2c5747"/>
+<path d="M468.2,349.5 L473.9,307.2 L494.1,333.6 Z" fill="#4b8166"/>
+<path d="M494.1,333.6 L473.9,307.2 L498.9,326.4 Z" fill="#498061"/>
+<path d="M473.9,307.2 L498.1,310.9 L498.9,326.4 Z" fill="#457c5d"/>
+<path d="M439.3,387.0 L431.4,411.4 L418.4,408.5 Z" fill="#366151"/>
+<path d="M437.1,409.3 L431.4,411.4 L439.3,387.0 Z" fill="#345f4f"/>
+<path d="M384.1,423.2 L378.0,391.3 L384.4,393.8 Z" fill="#264f3e"/>
+<path d="M404.3,482.5 L388.6,468.1 L417.5,461.5 Z" fill="#2c5544"/>
+<path d="M388.6,468.1 L404.3,482.5 L379.8,491.0 Z" fill="#3a6950"/>
+<path d="M404.3,482.5 L380.9,500.0 L379.8,491.0 Z" fill="#50866b"/>
+<path d="M380.9,500.0 L404.3,482.5 L414.2,512.0 Z" fill="#2d5645"/>
+<path d="M455.4,501.7 L449.3,498.6 L468.6,492.7 Z" fill="#50866b"/>
+<path d="M445.3,470.8 L449.3,498.6 L433.3,483.2 Z" fill="#41775c"/>
+<path d="M449.3,498.6 L445.3,470.8 L468.6,492.7 Z" fill="#3c6b52"/>
+<path d="M511.5,442.6 L478.9,451.7 L466.5,430.1 Z" fill="#467d5e"/>
+<path d="M484.5,460.7 L478.9,451.7 L511.5,442.6 Z" fill="#437a5b"/>
+<path d="M500.0,501.7 L502.7,476.1 L516.6,498.7 Z" fill="#315a49"/>
+<path d="M358.8,388.8 L338.0,377.0 L340.7,361.0 Z" fill="#52886d"/>
+<path d="M341.0,386.9 L338.0,377.0 L358.8,388.8 Z" fill="#315a49"/>
+<path d="M338.0,377.0 L304.5,373.2 L340.7,361.0 Z" fill="#52886d"/>
+<path d="M357.9,419.1 L384.1,423.2 L367.3,440.1 Z" fill="#376252"/>
+<path d="M378.0,391.3 L357.9,419.1 L358.8,388.8 Z" fill="#497f64"/>
+<path d="M384.1,423.2 L357.9,419.1 L378.0,391.3 Z" fill="#345f4f"/>
+<path d="M319.0,411.8 L298.7,420.9 L293.8,404.2 Z" fill="#3d7455"/>
+<path d="M302.8,394.9 L319.0,411.8 L293.8,404.2 Z" fill="#447b5c"/>
+<path d="M439.3,387.0 L429.5,376.8 L442.6,356.5 Z" fill="#44735a"/>
+<path d="M429.5,376.8 L419.5,379.4 L415.7,374.3 Z" fill="#407758"/>
+<path d="M429.5,376.8 L437.6,347.4 L442.6,356.5 Z" fill="#498061"/>
+<path d="M437.6,347.4 L429.5,376.8 L415.7,374.3 Z" fill="#3e6959"/>
+<path d="M421.4,382.5 L439.3,387.0 L418.4,408.5 Z" fill="#2f5847"/>
+<path d="M421.4,382.5 L418.4,408.5 L403.1,377.0 Z" fill="#39684f"/>
+<path d="M419.5,379.4 L421.4,382.5 L403.1,377.0 Z" fill="#335e4e"/>
+<path d="M421.4,382.5 L429.5,376.8 L439.3,387.0 Z" fill="#315c4c"/>
+<path d="M429.5,376.8 L421.4,382.5 L419.5,379.4 Z" fill="#2c5747"/>
+<path d="M390.9,327.8 L389.9,311.8 L412.9,315.6 Z" fill="#2a5342"/>
+<path d="M379.7,318.5 L389.9,311.8 L390.9,327.8 Z" fill="#2d5848"/>
+<path d="M374.5,332.5 L360.1,336.9 L361.3,323.9 Z" fill="#44735a"/>
+<path d="M346.2,334.0 L360.1,336.9 L353.1,339.9 Z" fill="#305b4b"/>
+<path d="M360.1,336.9 L374.5,332.5 L382.4,352.8 Z" fill="#447a5f"/>
+<path d="M361.3,323.9 L360.1,336.9 L347.0,325.2 Z" fill="#45745b"/>
+<path d="M360.1,336.9 L346.2,334.0 L347.0,325.2 Z" fill="#3b6656"/>
+<path d="M377.8,364.5 L360.1,336.9 L382.4,352.8 Z" fill="#4f856a"/>
+<path d="M360.1,336.9 L377.8,364.5 L353.1,339.9 Z" fill="#315c4c"/>
+<path d="M468.5,288.2 L463.6,305.9 L422.4,277.5 Z" fill="#3b6a51"/>
+<path d="M435.7,266.4 L468.5,288.2 L422.4,277.5 Z" fill="#447a5f"/>
+<path d="M479.1,278.2 L468.5,288.2 L448.9,255.3 Z" fill="#3f6e55"/>
+<path d="M468.5,288.2 L435.7,266.4 L448.9,255.3 Z" fill="#43795e"/>
+<path d="M339.1,348.1 L338.6,353.4 L332.5,344.6 Z" fill="#27503f"/>
+<path d="M338.6,353.4 L340.7,361.0 L308.6,350.3 Z" fill="#3e7556"/>
+<path d="M338.6,353.4 L353.1,339.9 L340.7,361.0 Z" fill="#2f5847"/>
+<path d="M338.6,353.4 L339.1,348.1 L353.1,339.9 Z" fill="#3a6950"/>
+<path d="M321.4,341.9 L338.6,353.4 L308.6,350.3 Z" fill="#44735a"/>
+<path d="M332.5,344.6 L338.6,353.4 L321.4,341.9 Z" fill="#487e63"/>
+<path d="M309.6,479.1 L322.9,499.1 L311.6,493.0 Z" fill="#325b4a"/>
+<path d="M322.9,499.1 L309.6,479.1 L324.5,467.7 Z" fill="#4f856a"/>
+<path d="M335.7,494.7 L322.9,499.1 L324.5,467.7 Z" fill="#3e6959"/>
+<path d="M774.3,533.8 L769.5,523.0 L783.0,522.3 Z" fill="#4a8065"/>
+<path d="M752.5,540.2 L769.5,523.0 L774.3,533.8 Z" fill="#27503f"/>
+<path d="M753.7,519.8 L752.5,540.2 L739.2,535.1 Z" fill="#295241"/>
+<path d="M753.7,519.8 L739.2,535.1 L727.5,515.5 Z" fill="#407758"/>
+<path d="M769.5,523.0 L753.7,519.8 L761.6,516.5 Z" fill="#2e5949"/>
+<path d="M753.7,519.8 L769.5,523.0 L752.5,540.2 Z" fill="#417859"/>
+<path d="M745.8,496.6 L753.7,519.8 L727.5,515.5 Z" fill="#4b8263"/>
+<path d="M753.7,519.8 L759.9,497.9 L761.6,516.5 Z" fill="#38674e"/>
+<path d="M759.9,497.9 L753.7,519.8 L745.8,496.6 Z" fill="#406f56"/>
+<path d="M791.6,510.7 L773.9,499.1 L784.9,487.2 Z" fill="#50866b"/>
+<path d="M759.9,497.9 L773.9,499.1 L761.6,516.5 Z" fill="#2d5848"/>
+<path d="M773.9,499.1 L791.6,510.7 L783.0,522.3 Z" fill="#437a5b"/>
+<path d="M773.9,499.1 L769.5,523.0 L761.6,516.5 Z" fill="#3a6555"/>
+<path d="M769.5,523.0 L773.9,499.1 L783.0,522.3 Z" fill="#3a6950"/>
+<path d="M773.4,407.6 L757.9,403.3 L778.4,398.7 Z" fill="#3e6959"/>
+<path d="M746.1,377.9 L757.9,403.3 L742.5,399.0 Z" fill="#477e5f"/>
+<path d="M757.9,403.3 L779.3,378.3 L778.4,398.7 Z" fill="#44735a"/>
+<path d="M757.9,403.3 L746.1,377.9 L774.3,372.1 Z" fill="#3e7556"/>
+<path d="M779.3,378.3 L757.9,403.3 L774.3,372.1 Z" fill="#305b4b"/>
+<path d="M775.8,406.1 L778.4,398.7 L788.8,411.9 Z" fill="#34634a"/>
+<path d="M773.4,407.6 L775.8,406.1 L788.8,411.9 Z" fill="#437a5b"/>
+<path d="M775.8,406.1 L773.4,407.6 L778.4,398.7 Z" fill="#386150"/>
+<path d="M795.9,427.3 L788.8,411.9 L807.3,419.6 Z" fill="#3a6555"/>
+<path d="M813.5,432.4 L795.9,427.3 L807.3,419.6 Z" fill="#417057"/>
+<path d="M795.9,427.3 L813.5,432.4 L803.1,442.7 Z" fill="#386353"/>
+<path d="M784.9,487.2 L803.6,485.5 L800.3,499.1 Z" fill="#3c6757"/>
+<path d="M795.9,475.2 L803.6,485.5 L784.9,487.2 Z" fill="#355e4d"/>
+<path d="M692.5,473.5 L686.9,470.4 L679.9,463.2 Z" fill="#43795e"/>
+<path d="M686.9,470.4 L692.5,473.5 L691.3,482.2 Z" fill="#27503f"/>
+<path d="M692.5,473.5 L705.1,483.8 L691.3,482.2 Z" fill="#4b8166"/>
+<path d="M671.5,494.0 L651.2,483.6 L660.9,463.2 Z" fill="#2e5746"/>
+<path d="M679.9,463.2 L671.5,494.0 L660.9,463.2 Z" fill="#35644b"/>
+<path d="M686.9,470.4 L671.5,494.0 L679.9,463.2 Z" fill="#4c8364"/>
+<path d="M671.5,494.0 L686.9,470.4 L691.3,482.2 Z" fill="#264f3e"/>
+<path d="M677.2,497.0 L671.5,494.0 L691.3,482.2 Z" fill="#3e6959"/>
+<path d="M662.5,534.2 L699.8,532.2 L690.7,553.9 Z" fill="#38674e"/>
+<path d="M662.5,534.2 L664.0,528.8 L699.8,532.2 Z" fill="#51876c"/>
+<path d="M673.1,514.9 L677.2,497.0 L699.8,532.2 Z" fill="#497f64"/>
+<path d="M664.0,528.8 L673.1,514.9 L699.8,532.2 Z" fill="#4c8364"/>
+<path d="M673.1,514.9 L671.5,494.0 L677.2,497.0 Z" fill="#50866b"/>
+<path d="M559.4,455.5 L552.4,438.6 L574.8,451.2 Z" fill="#427158"/>
+<path d="M559.4,455.5 L548.7,468.3 L552.4,438.6 Z" fill="#396454"/>
+<path d="M550.3,492.7 L538.6,520.0 L516.6,498.7 Z" fill="#366151"/>
+<path d="M538.6,520.0 L550.3,492.7 L562.7,504.3 Z" fill="#38674e"/>
+<path d="M556.2,537.1 L541.2,547.9 L530.9,536.4 Z" fill="#396454"/>
+<path d="M538.6,520.0 L556.2,537.1 L530.9,536.4 Z" fill="#4a8065"/>
+<path d="M556.2,537.1 L578.4,542.0 L556.1,562.0 Z" fill="#52886d"/>
+<path d="M541.2,547.9 L556.2,537.1 L556.1,562.0 Z" fill="#417057"/>
+<path d="M617.2,425.0 L622.2,423.9 L620.5,432.4 Z" fill="#3d6c53"/>
+<path d="M605.6,442.7 L617.2,425.0 L620.5,432.4 Z" fill="#366151"/>
+<path d="M617.2,425.0 L605.6,442.7 L594.8,432.7 Z" fill="#3f6e55"/>
+<path d="M606.9,401.7 L617.2,425.0 L594.8,432.7 Z" fill="#264f3e"/>
+<path d="M622.2,423.9 L617.2,425.0 L606.9,401.7 Z" fill="#345d4c"/>
+<path d="M587.4,613.7 L599.5,601.7 L615.5,622.4 Z" fill="#42785d"/>
+<path d="M592.1,629.6 L587.4,613.7 L615.5,622.4 Z" fill="#4a8162"/>
+<path d="M587.4,613.7 L592.1,629.6 L586.8,616.2 Z" fill="#3b6656"/>
+<path d="M587.4,613.7 L586.8,616.2 L581.5,602.9 Z" fill="#42785d"/>
+<path d="M578.4,542.0 L585.1,550.9 L556.1,562.0 Z" fill="#42795a"/>
+<path d="M585.1,550.9 L571.0,576.2 L556.1,562.0 Z" fill="#2a5342"/>
+<path d="M571.0,576.2 L585.1,550.9 L588.8,553.7 Z" fill="#3a6555"/>
+<path d="M576.2,589.5 L571.0,576.2 L595.9,585.1 Z" fill="#447a5f"/>
+<path d="M605.4,574.3 L610.0,586.4 L595.9,585.1 Z" fill="#3a6950"/>
+<path d="M588.8,553.7 L605.4,574.3 L595.9,585.1 Z" fill="#437a5b"/>
+<path d="M607.2,568.5 L605.4,574.3 L588.8,553.7 Z" fill="#264f3e"/>
+<path d="M703.5,569.3 L696.0,572.6 L690.7,553.9 Z" fill="#335c4b"/>
+<path d="M696.0,572.6 L692.5,572.9 L690.7,553.9 Z" fill="#3a6950"/>
+<path d="M696.0,572.6 L703.5,569.3 L692.5,583.0 Z" fill="#417057"/>
+<path d="M692.5,572.9 L692.9,577.3 L683.4,561.7 Z" fill="#37664d"/>
+<path d="M692.9,577.3 L670.9,592.3 L683.4,561.7 Z" fill="#4a8065"/>
+<path d="M670.9,592.3 L692.9,577.3 L692.5,583.0 Z" fill="#2e5746"/>
+<path d="M692.9,577.3 L696.0,572.6 L692.5,583.0 Z" fill="#50866b"/>
+<path d="M696.0,572.6 L692.9,577.3 L692.5,572.9 Z" fill="#487e63"/>
+<path d="M653.5,579.6 L670.9,592.3 L651.5,591.2 Z" fill="#52886d"/>
+<path d="M600.6,517.1 L625.1,522.9 L611.8,550.6 Z" fill="#467d5e"/>
+<path d="M613.9,509.4 L625.1,522.9 L600.6,517.1 Z" fill="#4a8162"/>
+<path d="M671.5,494.0 L644.6,503.4 L651.2,483.6 Z" fill="#3c7354"/>
+<path d="M644.6,503.4 L673.1,514.9 L653.5,519.7 Z" fill="#396454"/>
+<path d="M673.1,514.9 L644.6,503.4 L671.5,494.0 Z" fill="#3c6757"/>
+<path d="M709.5,365.7 L709.5,393.9 L694.1,362.2 Z" fill="#2c5747"/>
+<path d="M720.7,361.4 L709.5,365.7 L720.3,355.4 Z" fill="#356050"/>
+<path d="M726.0,396.5 L709.5,365.7 L720.7,361.4 Z" fill="#386150"/>
+<path d="M709.5,393.9 L709.5,365.7 L726.0,396.5 Z" fill="#457b60"/>
+<path d="M498.4,237.3 L489.7,247.3 L483.5,243.7 Z" fill="#52886d"/>
+<path d="M489.7,247.3 L498.4,237.3 L508.2,247.7 Z" fill="#4c8267"/>
+<path d="M601.5,364.8 L594.7,366.2 L585.7,358.4 Z" fill="#3d6858"/>
+<path d="M594.7,366.2 L582.8,367.3 L585.7,358.4 Z" fill="#325b4a"/>
+<path d="M594.7,366.2 L601.5,364.8 L588.8,392.8 Z" fill="#4b8166"/>
+<path d="M583.4,390.8 L594.7,366.2 L588.8,392.8 Z" fill="#417859"/>
+<path d="M582.8,367.3 L594.7,366.2 L583.4,390.8 Z" fill="#325b4a"/>
+<path d="M187.1,521.4 L193.3,515.8 L203.5,539.2 Z" fill="#477e5f"/>
+<path d="M184.3,535.9 L187.1,521.4 L203.5,539.2 Z" fill="#3d6c53"/>
+<path d="M193.3,515.8 L187.1,521.4 L189.8,506.9 Z" fill="#4d8368"/>
+<path d="M184.3,535.9 L188.2,547.9 L181.6,550.5 Z" fill="#457b60"/>
+<path d="M188.2,547.9 L184.3,535.9 L203.5,539.2 Z" fill="#42785d"/>
+<path d="M199.1,558.9 L188.2,547.9 L203.5,539.2 Z" fill="#4a8162"/>
+<path d="M189.8,564.6 L188.2,547.9 L199.1,558.9 Z" fill="#305948"/>
+<path d="M203.8,591.9 L216.3,586.7 L215.9,591.8 Z" fill="#417057"/>
+<path d="M203.8,593.4 L203.8,591.9 L215.9,591.8 Z" fill="#437259"/>
+<path d="M216.3,586.7 L203.8,591.9 L191.4,581.3 Z" fill="#41775c"/>
+<path d="M203.8,591.9 L187.0,597.5 L191.4,581.3 Z" fill="#477e5f"/>
+<path d="M203.8,591.9 L203.8,593.4 L187.0,597.5 Z" fill="#3c7354"/>
+<path d="M232.8,621.4 L230.4,596.1 L243.9,618.3 Z" fill="#497f64"/>
+<path d="M215.9,591.8 L230.4,596.1 L206.5,618.6 Z" fill="#386353"/>
+<path d="M230.4,596.1 L232.8,621.4 L206.5,618.6 Z" fill="#3d6c53"/>
+<path d="M230.4,596.1 L245.9,618.8 L243.9,618.3 Z" fill="#325b4a"/>
+<path d="M230.4,596.1 L216.3,586.7 L223.9,573.8 Z" fill="#3b6656"/>
+<path d="M216.3,586.7 L230.4,596.1 L215.9,591.8 Z" fill="#27503f"/>
+<path d="M230.4,596.1 L223.9,573.8 L277.9,562.0 Z" fill="#285140"/>
+<path d="M286.0,588.5 L230.4,596.1 L277.9,562.0 Z" fill="#437a5b"/>
+<path d="M230.4,596.1 L286.0,588.5 L272.6,614.4 Z" fill="#3c7354"/>
+<path d="M245.9,618.8 L230.4,596.1 L272.6,614.4 Z" fill="#447a5f"/>
+<path d="M225.0,667.5 L228.4,654.4 L247.1,663.1 Z" fill="#417057"/>
+<path d="M247.1,663.1 L228.4,654.4 L232.3,628.5 Z" fill="#437a5b"/>
+<path d="M228.4,654.4 L220.8,634.0 L232.3,628.5 Z" fill="#34634a"/>
+<path d="M228.4,654.4 L225.0,667.5 L209.5,644.3 Z" fill="#2d5848"/>
+<path d="M220.8,634.0 L228.4,654.4 L209.5,644.3 Z" fill="#376252"/>
+<path d="M305.5,579.5 L283.9,552.2 L345.5,550.8 Z" fill="#396454"/>
+<path d="M321.1,583.1 L305.5,579.5 L345.5,550.8 Z" fill="#417859"/>
+<path d="M283.9,552.2 L305.5,579.5 L277.9,562.0 Z" fill="#335c4b"/>
+<path d="M305.5,579.5 L286.0,588.5 L277.9,562.0 Z" fill="#2b5443"/>
+<path d="M305.5,579.5 L293.4,596.7 L286.0,588.5 Z" fill="#3f7657"/>
+<path d="M305.5,579.5 L321.1,583.1 L293.4,596.7 Z" fill="#3f6e55"/>
+<path d="M440.2,334.8 L462.2,308.9 L449.2,344.1 Z" fill="#2d5645"/>
+<path d="M462.2,308.9 L468.2,349.5 L449.2,344.1 Z" fill="#53896e"/>
+<path d="M462.2,308.9 L440.2,334.8 L428.6,328.1 Z" fill="#417859"/>
+<path d="M473.9,307.2 L462.2,308.9 L463.6,305.9 Z" fill="#497f64"/>
+<path d="M462.2,308.9 L473.9,307.2 L468.2,349.5 Z" fill="#497f64"/>
+<path d="M412.9,315.6 L462.2,308.9 L428.6,328.1 Z" fill="#417057"/>
+<path d="M462.2,308.9 L412.9,315.6 L422.4,277.5 Z" fill="#3d6858"/>
+<path d="M463.6,305.9 L462.2,308.9 L422.4,277.5 Z" fill="#3c7354"/>
+<path d="M498.1,310.9 L475.6,299.1 L500.9,306.4 Z" fill="#4c8267"/>
+<path d="M473.9,307.2 L475.6,299.1 L498.1,310.9 Z" fill="#2f5847"/>
+<path d="M500.9,306.4 L475.6,299.1 L479.1,278.2 Z" fill="#497f64"/>
+<path d="M475.6,299.1 L468.5,288.2 L479.1,278.2 Z" fill="#4a8065"/>
+<path d="M475.6,299.1 L473.9,307.2 L463.6,305.9 Z" fill="#467d5e"/>
+<path d="M468.5,288.2 L475.6,299.1 L463.6,305.9 Z" fill="#447a5f"/>
+<path d="M482.9,385.1 L496.9,403.6 L466.5,430.1 Z" fill="#467d5e"/>
+<path d="M496.9,403.6 L511.5,442.6 L466.5,430.1 Z" fill="#315a49"/>
+<path d="M511.5,442.6 L496.9,403.6 L512.4,404.1 Z" fill="#2f5847"/>
+<path d="M510.9,383.0 L524.0,395.6 L512.4,404.1 Z" fill="#2c5747"/>
+<path d="M510.9,383.0 L546.2,368.1 L541.0,388.3 Z" fill="#497f64"/>
+<path d="M524.0,395.6 L510.9,383.0 L541.0,388.3 Z" fill="#45745b"/>
+<path d="M469.1,365.3 L439.3,387.0 L442.6,356.5 Z" fill="#427158"/>
+<path d="M468.2,349.5 L469.1,365.3 L442.6,356.5 Z" fill="#335e4e"/>
+<path d="M437.1,409.3 L471.0,383.0 L466.5,430.1 Z" fill="#315a49"/>
+<path d="M471.0,383.0 L482.9,385.1 L466.5,430.1 Z" fill="#407758"/>
+<path d="M471.0,383.0 L437.1,409.3 L439.3,387.0 Z" fill="#2e5746"/>
+<path d="M469.1,365.3 L471.0,383.0 L439.3,387.0 Z" fill="#3d7455"/>
+<path d="M436.2,433.7 L437.1,409.3 L466.5,430.1 Z" fill="#3c6b52"/>
+<path d="M436.2,433.7 L431.4,411.4 L437.1,409.3 Z" fill="#42785d"/>
+<path d="M384.1,423.2 L372.8,440.7 L367.3,440.1 Z" fill="#315a49"/>
+<path d="M372.8,440.7 L384.1,423.2 L406.5,439.5 Z" fill="#3c7354"/>
+<path d="M372.8,440.7 L388.6,468.1 L367.3,440.1 Z" fill="#366151"/>
+<path d="M372.8,440.7 L406.5,439.5 L388.6,468.1 Z" fill="#467c61"/>
+<path d="M408.7,419.7 L384.4,393.8 L418.4,408.5 Z" fill="#3e7556"/>
+<path d="M433.3,483.2 L416.5,490.9 L417.5,461.5 Z" fill="#315a49"/>
+<path d="M416.5,490.9 L404.3,482.5 L417.5,461.5 Z" fill="#365f4e"/>
+<path d="M416.5,490.9 L433.3,483.2 L427.9,508.6 Z" fill="#315c4c"/>
+<path d="M414.2,512.0 L416.5,490.9 L427.9,508.6 Z" fill="#3b6656"/>
+<path d="M404.3,482.5 L416.5,490.9 L414.2,512.0 Z" fill="#366151"/>
+<path d="M441.7,505.1 L449.3,498.6 L455.4,501.7 Z" fill="#417057"/>
+<path d="M433.3,483.2 L441.7,505.1 L427.9,508.6 Z" fill="#37664d"/>
+<path d="M449.3,498.6 L441.7,505.1 L433.3,483.2 Z" fill="#467d5e"/>
+<path d="M468.6,492.7 L470.1,475.2 L473.3,483.8 Z" fill="#315a49"/>
+<path d="M445.3,470.8 L470.1,475.2 L468.6,492.7 Z" fill="#3f6e55"/>
+<path d="M470.1,475.2 L478.9,451.7 L484.5,460.7 Z" fill="#3b6a51"/>
+<path d="M501.9,474.5 L484.5,460.7 L511.5,442.6 Z" fill="#295241"/>
+<path d="M481.9,483.8 L502.7,476.1 L500.0,501.7 Z" fill="#4c8267"/>
+<path d="M481.9,483.8 L468.6,492.7 L473.3,483.8 Z" fill="#3e6959"/>
+<path d="M481.9,483.8 L501.9,474.5 L502.7,476.1 Z" fill="#4c8267"/>
+<path d="M501.9,474.5 L481.9,483.8 L484.5,460.7 Z" fill="#3a6950"/>
+<path d="M470.1,475.2 L481.9,483.8 L473.3,483.8 Z" fill="#41775c"/>
+<path d="M481.9,483.8 L470.1,475.2 L484.5,460.7 Z" fill="#37604f"/>
+<path d="M318.7,397.0 L338.0,377.0 L341.0,386.9 Z" fill="#335e4e"/>
+<path d="M318.7,397.0 L319.0,411.8 L302.8,394.9 Z" fill="#417057"/>
+<path d="M318.7,397.0 L302.8,394.9 L304.5,373.2 Z" fill="#396454"/>
+<path d="M338.0,377.0 L318.7,397.0 L304.5,373.2 Z" fill="#37664d"/>
+<path d="M346.7,396.1 L341.0,386.9 L358.8,388.8 Z" fill="#34634a"/>
+<path d="M357.9,419.1 L346.7,396.1 L358.8,388.8 Z" fill="#3b6656"/>
+<path d="M346.7,396.1 L318.7,397.0 L341.0,386.9 Z" fill="#36654c"/>
+<path d="M318.7,397.0 L346.7,396.1 L319.0,411.8 Z" fill="#4b8263"/>
+<path d="M387.8,306.6 L379.7,318.5 L373.8,311.8 Z" fill="#467d5e"/>
+<path d="M387.8,306.6 L389.9,311.8 L379.7,318.5 Z" fill="#4c8267"/>
+<path d="M412.9,315.6 L387.8,306.6 L409.2,288.7 Z" fill="#335c4b"/>
+<path d="M389.9,311.8 L387.8,306.6 L412.9,315.6 Z" fill="#2a5342"/>
+<path d="M333.4,500.4 L335.7,494.7 L342.7,506.6 Z" fill="#447a5f"/>
+<path d="M333.4,500.4 L322.9,499.1 L335.7,494.7 Z" fill="#4e8469"/>
+<path d="M333.4,500.4 L342.7,506.6 L315.0,517.6 Z" fill="#2d5848"/>
+<path d="M322.9,499.1 L333.4,500.4 L315.0,517.6 Z" fill="#325d4d"/>
+<path d="M305.3,512.0 L313.6,506.9 L315.0,517.6 Z" fill="#4f856a"/>
+<path d="M313.6,506.9 L322.9,499.1 L315.0,517.6 Z" fill="#457c5d"/>
+<path d="M806.9,471.8 L795.9,475.2 L806.9,463.2 Z" fill="#3e6d54"/>
+<path d="M806.9,471.8 L803.6,485.5 L795.9,475.2 Z" fill="#315a49"/>
+<path d="M683.4,561.7 L663.4,545.4 L690.7,553.9 Z" fill="#3f6e55"/>
+<path d="M663.4,545.4 L662.5,534.2 L690.7,553.9 Z" fill="#325d4d"/>
+<path d="M673.1,514.9 L663.8,528.0 L653.5,519.7 Z" fill="#417057"/>
+<path d="M663.8,528.0 L673.1,514.9 L664.0,528.8 Z" fill="#39684f"/>
+<path d="M663.8,528.0 L662.5,534.2 L653.5,519.7 Z" fill="#264f3e"/>
+<path d="M538.0,481.2 L550.3,492.7 L516.6,498.7 Z" fill="#3d6c53"/>
+<path d="M502.7,476.1 L538.0,481.2 L516.6,498.7 Z" fill="#3e7556"/>
+<path d="M548.7,468.3 L538.0,481.2 L511.5,442.6 Z" fill="#2c5544"/>
+<path d="M538.0,481.2 L501.9,474.5 L511.5,442.6 Z" fill="#44735a"/>
+<path d="M501.9,474.5 L538.0,481.2 L502.7,476.1 Z" fill="#4c8364"/>
+<path d="M574.2,532.5 L587.5,524.8 L578.4,542.0 Z" fill="#417859"/>
+<path d="M556.2,537.1 L574.2,532.5 L578.4,542.0 Z" fill="#305b4b"/>
+<path d="M574.2,532.5 L556.2,537.1 L568.5,518.4 Z" fill="#264f3e"/>
+<path d="M562.9,516.3 L538.6,520.0 L562.7,504.3 Z" fill="#305b4b"/>
+<path d="M568.5,518.4 L562.9,516.3 L562.7,504.3 Z" fill="#4b8263"/>
+<path d="M562.9,516.3 L556.2,537.1 L538.6,520.0 Z" fill="#315c4c"/>
+<path d="M556.2,537.1 L562.9,516.3 L568.5,518.4 Z" fill="#336249"/>
+<path d="M587.6,602.6 L587.4,613.7 L581.5,602.9 Z" fill="#3a7152"/>
+<path d="M587.4,613.7 L587.6,602.6 L599.5,601.7 Z" fill="#335e4e"/>
+<path d="M599.5,601.7 L587.6,602.6 L595.9,585.1 Z" fill="#305948"/>
+<path d="M576.2,589.5 L587.6,602.6 L581.5,602.9 Z" fill="#38674e"/>
+<path d="M587.6,602.6 L576.2,589.5 L595.9,585.1 Z" fill="#2d5848"/>
+<path d="M587.5,524.8 L582.3,545.2 L578.4,542.0 Z" fill="#477e5f"/>
+<path d="M582.3,545.2 L585.1,550.9 L578.4,542.0 Z" fill="#295241"/>
+<path d="M585.1,550.9 L582.3,545.2 L588.8,553.7 Z" fill="#427158"/>
+<path d="M582.3,545.2 L587.5,524.8 L611.8,550.6 Z" fill="#4c8267"/>
+<path d="M588.8,553.7 L582.3,545.2 L611.8,550.6 Z" fill="#386150"/>
+<path d="M618.8,551.2 L607.2,568.5 L611.8,550.6 Z" fill="#417057"/>
+<path d="M625.1,522.9 L618.8,551.2 L611.8,550.6 Z" fill="#2d5645"/>
+<path d="M618.8,551.2 L625.1,522.9 L634.2,523.9 Z" fill="#27503f"/>
+<path d="M641.9,463.2 L635.9,487.2 L627.0,470.9 Z" fill="#2f5847"/>
+<path d="M627.0,518.4 L625.1,522.9 L613.9,509.4 Z" fill="#41775c"/>
+<path d="M625.1,522.9 L627.0,518.4 L634.2,523.9 Z" fill="#427158"/>
+<path d="M507.4,241.3 L514.9,237.3 L508.2,247.7 Z" fill="#4e8469"/>
+<path d="M498.4,237.3 L507.4,241.3 L508.2,247.7 Z" fill="#427158"/>
+<path d="M507.4,241.3 L498.4,237.3 L514.9,237.3 Z" fill="#43795e"/>
+<path d="M503.4,401.4 L496.9,403.6 L482.9,385.1 Z" fill="#3d6c53"/>
+<path d="M510.9,383.0 L503.4,401.4 L482.9,385.1 Z" fill="#2a5342"/>
+<path d="M496.9,403.6 L503.4,401.4 L512.4,404.1 Z" fill="#37664d"/>
+<path d="M503.4,401.4 L510.9,383.0 L512.4,404.1 Z" fill="#3e6959"/>
+<path d="M504.7,373.4 L510.9,383.0 L482.9,385.1 Z" fill="#305948"/>
+<path d="M505.6,331.8 L504.7,373.4 L494.1,333.6 Z" fill="#51876c"/>
+<path d="M504.7,373.4 L505.6,331.8 L518.2,335.2 Z" fill="#3a6555"/>
+<path d="M546.2,368.1 L504.7,373.4 L518.2,335.2 Z" fill="#335c4b"/>
+<path d="M510.9,383.0 L504.7,373.4 L546.2,368.1 Z" fill="#36654c"/>
+<path d="M406.5,439.5 L435.2,453.3 L417.5,461.5 Z" fill="#2c5544"/>
+<path d="M436.2,433.7 L435.2,453.3 L406.5,439.5 Z" fill="#4f856a"/>
+<path d="M384.1,423.2 L396.3,421.6 L406.5,439.5 Z" fill="#477e5f"/>
+<path d="M396.3,421.6 L384.1,423.2 L384.4,393.8 Z" fill="#3a6555"/>
+<path d="M408.7,419.7 L396.3,421.6 L384.4,393.8 Z" fill="#4e8469"/>
+<path d="M345.6,420.9 L346.7,396.1 L357.9,419.1 Z" fill="#3d6c53"/>
+<path d="M328.9,440.8 L345.6,420.9 L367.3,440.1 Z" fill="#4b8166"/>
+<path d="M345.6,420.9 L357.9,419.1 L367.3,440.1 Z" fill="#376252"/>
+<path d="M322.9,499.1 L314.2,498.1 L311.6,493.0 Z" fill="#498061"/>
+<path d="M313.6,506.9 L314.2,498.1 L322.9,499.1 Z" fill="#35644b"/>
+<path d="M658.4,562.5 L663.4,545.4 L683.4,561.7 Z" fill="#35644b"/>
+<path d="M670.9,592.3 L658.4,562.5 L683.4,561.7 Z" fill="#447a5f"/>
+<path d="M653.5,579.6 L658.4,562.5 L670.9,592.3 Z" fill="#305b4b"/>
+<path d="M640.2,527.4 L618.8,551.2 L634.2,523.9 Z" fill="#27503f"/>
+<path d="M644.6,503.4 L646.1,486.2 L651.2,483.6 Z" fill="#37604f"/>
+<path d="M635.9,487.2 L646.1,486.2 L644.6,503.4 Z" fill="#305948"/>
+<path d="M651.2,483.6 L646.1,486.2 L641.9,463.2 Z" fill="#406f56"/>
+<path d="M646.1,486.2 L635.9,487.2 L641.9,463.2 Z" fill="#396454"/>
+<path d="M470.6,364.3 L504.7,373.4 L482.9,385.1 Z" fill="#3c6b52"/>
+<path d="M471.0,383.0 L470.6,364.3 L482.9,385.1 Z" fill="#2f5847"/>
+<path d="M470.6,364.3 L471.0,383.0 L469.1,365.3 Z" fill="#2f5a4a"/>
+<path d="M470.6,364.3 L469.1,365.3 L468.2,349.5 Z" fill="#365f4e"/>
+<path d="M470.6,364.3 L468.2,349.5 L494.1,333.6 Z" fill="#3e7556"/>
+<path d="M504.7,373.4 L470.6,364.3 L494.1,333.6 Z" fill="#487e63"/>
+<path d="M435.2,453.3 L431.8,462.5 L417.5,461.5 Z" fill="#3e6d54"/>
+<path d="M431.8,462.5 L435.2,453.3 L445.3,470.8 Z" fill="#315a49"/>
+<path d="M431.8,462.5 L433.3,483.2 L417.5,461.5 Z" fill="#3b6a51"/>
+<path d="M431.8,462.5 L445.3,470.8 L433.3,483.2 Z" fill="#2d5645"/>
+<path d="M455.6,456.3 L436.2,433.7 L466.5,430.1 Z" fill="#52886d"/>
+<path d="M455.6,456.3 L435.2,453.3 L436.2,433.7 Z" fill="#37604f"/>
+<path d="M478.9,451.7 L455.6,456.3 L466.5,430.1 Z" fill="#3b6a51"/>
+<path d="M435.2,453.3 L455.6,456.3 L445.3,470.8 Z" fill="#38674e"/>
+<path d="M455.6,456.3 L470.1,475.2 L445.3,470.8 Z" fill="#356050"/>
+<path d="M470.1,475.2 L455.6,456.3 L478.9,451.7 Z" fill="#376252"/>
+<path d="M396.3,421.6 L411.0,425.2 L406.5,439.5 Z" fill="#38674e"/>
+<path d="M411.0,425.2 L396.3,421.6 L408.7,419.7 Z" fill="#4c8364"/>
+<path d="M411.0,425.2 L436.2,433.7 L406.5,439.5 Z" fill="#43795e"/>
+<path d="M436.2,433.7 L411.0,425.2 L431.4,411.4 Z" fill="#3a7152"/>
+<path d="M431.4,411.4 L411.0,425.2 L418.4,408.5 Z" fill="#437259"/>
+<path d="M411.0,425.2 L408.7,419.7 L418.4,408.5 Z" fill="#467d5e"/>
+<path d="M346.7,396.1 L329.3,419.9 L319.0,411.8 Z" fill="#4f856a"/>
+<path d="M345.6,420.9 L329.3,419.9 L346.7,396.1 Z" fill="#315c4c"/>
+<path d="M329.3,419.9 L345.6,420.9 L328.9,440.8 Z" fill="#356050"/>
+<path d="M322.3,420.0 L328.9,440.8 L303.6,437.5 Z" fill="#3e6959"/>
+<path d="M322.3,420.0 L329.3,419.9 L328.9,440.8 Z" fill="#285140"/>
+<path d="M329.3,419.9 L322.3,420.0 L319.0,411.8 Z" fill="#37664d"/>
+<path d="M298.7,420.9 L322.3,420.0 L303.6,437.5 Z" fill="#3b7253"/>
+<path d="M319.0,411.8 L322.3,420.0 L298.7,420.9 Z" fill="#3b6a51"/>
+<path d="M644.6,578.7 L640.2,594.1 L623.8,581.3 Z" fill="#4e8469"/>
+<path d="M649.1,563.3 L627.9,571.8 L618.8,551.2 Z" fill="#4f856a"/>
+<path d="M607.2,568.5 L627.9,571.8 L623.8,581.3 Z" fill="#497f64"/>
+<path d="M618.8,551.2 L627.9,571.8 L607.2,568.5 Z" fill="#4a8162"/>
+<path d="M627.9,571.8 L644.6,578.7 L623.8,581.3 Z" fill="#3e6d54"/>
+<path d="M644.6,578.7 L627.9,571.8 L649.1,563.3 Z" fill="#447a5f"/>
+<path d="M640.2,527.4 L653.5,547.9 L618.8,551.2 Z" fill="#3e6959"/>
+<path d="M653.5,547.9 L649.1,563.3 L618.8,551.2 Z" fill="#51876c"/>
+<path d="M518.5,160.9 L531.4,193.7 L509.9,196.2 Z" fill="#2d5848"/>
+<path d="M567.4,50.6 L555.3,-5.1 L598.9,28.5 Z" fill="#467d5e"/>
+<path d="M567.4,50.6 L598.9,28.5 L601.9,44.3 Z" fill="#27503f"/>
+<path d="M567.4,50.6 L567.8,95.8 L555.6,73.2 Z" fill="#39684f"/>
+<path d="M522.4,-13.7 L555.3,-5.1 L528.9,31.3 Z" fill="#325d4d"/>
+<path d="M518.5,160.9 L538.9,186.2 L531.4,193.7 Z" fill="#42795a"/>
+<path d="M531.4,193.7 L538.9,186.2 L547.9,201.4 Z" fill="#366151"/>
+<path d="M541.8,113.1 L567.8,95.8 L576.0,118.7 Z" fill="#336249"/>
+<path d="M496.7,191.1 L518.5,160.9 L509.9,196.2 Z" fill="#4e8469"/>
+<path d="M478.0,168.9 L496.7,191.1 L483.5,186.0 Z" fill="#3e7556"/>
+<path d="M496.7,191.1 L478.0,168.9 L518.5,160.9 Z" fill="#52886d"/>
+<path d="M538.9,186.2 L569.3,186.0 L547.9,201.4 Z" fill="#4a8162"/>
+<path d="M614.2,-83.5 L628.4,-86.1 L608.6,-18.1 Z" fill="#315a49"/>
+<path d="M555.3,-5.1 L580.0,-13.8 L598.9,28.5 Z" fill="#3f6e55"/>
+<path d="M626.3,91.7 L643.5,86.5 L641.9,101.3 Z" fill="#406f56"/>
+<path d="M645.2,71.8 L643.5,86.5 L626.3,91.7 Z" fill="#417057"/>
+<path d="M619.2,55.2 L645.2,71.8 L626.3,91.7 Z" fill="#3d6c53"/>
+<path d="M645.2,71.8 L619.2,55.2 L646.9,57.0 Z" fill="#335c4b"/>
+<path d="M619.2,55.2 L630.6,36.0 L646.9,57.0 Z" fill="#325b4a"/>
+<path d="M488.8,135.9 L533.8,131.9 L518.5,160.9 Z" fill="#4a8065"/>
+<path d="M450.5,130.8 L478.5,111.5 L467.0,134.6 Z" fill="#3f6e55"/>
+<path d="M430.5,87.2 L426.3,91.0 L422.4,73.0 Z" fill="#3d6c53"/>
+<path d="M430.1,109.0 L430.5,87.2 L462.7,85.4 Z" fill="#487f60"/>
+<path d="M430.1,109.0 L450.5,130.8 L434.0,126.9 Z" fill="#2e5949"/>
+<path d="M430.1,109.0 L426.3,91.0 L430.5,87.2 Z" fill="#447a5f"/>
+<path d="M500.3,25.7 L522.4,-13.7 L528.9,31.3 Z" fill="#477e5f"/>
+<path d="M522.4,-13.7 L500.3,25.7 L502.3,-19.6 Z" fill="#325b4a"/>
+<path d="M470.3,-4.8 L500.3,25.7 L482.3,36.1 Z" fill="#285140"/>
+<path d="M482.3,36.1 L450.2,31.5 L451.3,21.2 Z" fill="#4a8065"/>
+<path d="M511.3,92.6 L542.3,70.9 L522.7,95.7 Z" fill="#335e4e"/>
+<path d="M567.8,95.8 L603.2,94.9 L576.0,118.7 Z" fill="#315c4c"/>
+<path d="M603.2,94.9 L619.2,55.2 L626.3,91.7 Z" fill="#437259"/>
+<path d="M619.2,55.2 L603.2,94.9 L601.9,44.3 Z" fill="#437259"/>
+<path d="M603.2,94.9 L567.4,50.6 L601.9,44.3 Z" fill="#2c5544"/>
+<path d="M567.4,50.6 L603.2,94.9 L567.8,95.8 Z" fill="#376252"/>
+<path d="M598.9,28.5 L604.5,41.6 L601.9,44.3 Z" fill="#417859"/>
+<path d="M604.5,41.6 L619.2,55.2 L601.9,44.3 Z" fill="#37664d"/>
+<path d="M619.2,55.2 L604.5,41.6 L630.6,36.0 Z" fill="#325d4d"/>
+<path d="M580.0,-13.8 L609.5,14.8 L598.9,28.5 Z" fill="#3e7556"/>
+<path d="M609.5,14.8 L604.5,41.6 L598.9,28.5 Z" fill="#38674e"/>
+<path d="M604.5,41.6 L609.5,14.8 L630.6,36.0 Z" fill="#4f856a"/>
+<path d="M561.9,54.5 L567.4,50.6 L555.6,73.2 Z" fill="#386150"/>
+<path d="M542.3,70.9 L561.9,54.5 L555.6,73.2 Z" fill="#53896e"/>
+<path d="M493.4,-27.1 L506.6,-36.5 L502.3,-19.6 Z" fill="#305948"/>
+<path d="M506.6,-36.5 L522.4,-13.7 L502.3,-19.6 Z" fill="#305b4b"/>
+<path d="M522.4,-13.7 L506.6,-36.5 L533.7,-29.2 Z" fill="#43795e"/>
+<path d="M522.4,-13.7 L529.2,-17.1 L555.3,-5.1 Z" fill="#4f856a"/>
+<path d="M529.2,-17.1 L522.4,-13.7 L533.7,-29.2 Z" fill="#345f4f"/>
+<path d="M607.2,170.6 L588.3,178.3 L575.6,161.3 Z" fill="#27503f"/>
+<path d="M588.3,178.3 L569.3,186.0 L575.6,161.3 Z" fill="#3c6757"/>
+<path d="M571.6,134.3 L595.1,137.4 L575.6,161.3 Z" fill="#3c6b52"/>
+<path d="M611.3,154.7 L607.2,170.6 L575.6,161.3 Z" fill="#4f856a"/>
+<path d="M595.1,137.4 L611.3,154.7 L575.6,161.3 Z" fill="#34634a"/>
+<path d="M578.0,-54.6 L600.0,-81.0 L608.6,-18.1 Z" fill="#356050"/>
+<path d="M600.0,-81.0 L614.2,-83.5 L608.6,-18.1 Z" fill="#35644b"/>
+<path d="M585.8,-78.4 L600.0,-81.0 L578.0,-54.6 Z" fill="#365f4e"/>
+<path d="M601.1,-18.1 L578.0,-54.6 L608.6,-18.1 Z" fill="#4f856a"/>
+<path d="M601.1,-18.1 L580.0,-13.8 L578.0,-54.6 Z" fill="#37604f"/>
+<path d="M609.5,14.8 L601.1,-18.1 L608.6,-18.1 Z" fill="#417057"/>
+<path d="M601.1,-18.1 L609.5,14.8 L580.0,-13.8 Z" fill="#2c5544"/>
+<path d="M580.0,-13.8 L555.0,-49.0 L578.0,-54.6 Z" fill="#3b6656"/>
+<path d="M546.2,-61.1 L555.0,-49.0 L533.0,-55.3 Z" fill="#2a5342"/>
+<path d="M478.1,95.4 L511.3,92.6 L482.1,109.0 Z" fill="#417057"/>
+<path d="M546.9,167.1 L538.9,186.2 L518.5,160.9 Z" fill="#3d6c53"/>
+<path d="M546.9,167.1 L571.6,134.3 L575.6,161.3 Z" fill="#437259"/>
+<path d="M569.3,186.0 L546.9,167.1 L575.6,161.3 Z" fill="#3b7253"/>
+<path d="M546.9,167.1 L569.3,186.0 L538.9,186.2 Z" fill="#487f60"/>
+<path d="M488.8,135.9 L486.1,125.7 L533.8,131.9 Z" fill="#51876c"/>
+<path d="M486.1,125.7 L511.3,92.6 L522.7,95.7 Z" fill="#2b5443"/>
+<path d="M533.8,131.9 L486.1,125.7 L522.7,95.7 Z" fill="#376252"/>
+<path d="M511.3,92.6 L486.1,125.7 L482.1,109.0 Z" fill="#386353"/>
+<path d="M486.1,125.7 L478.5,111.5 L482.1,109.0 Z" fill="#4b8166"/>
+<path d="M478.5,111.5 L486.1,125.7 L467.0,134.6 Z" fill="#27503f"/>
+<path d="M486.1,125.7 L468.1,137.5 L467.0,134.6 Z" fill="#2e5949"/>
+<path d="M468.1,137.5 L486.1,125.7 L488.8,135.9 Z" fill="#2f5a4a"/>
+<path d="M458.8,6.3 L482.3,36.1 L451.3,21.2 Z" fill="#325b4a"/>
+<path d="M458.8,6.3 L470.3,-4.8 L482.3,36.1 Z" fill="#345f4f"/>
+<path d="M500.3,25.7 L508.1,49.1 L482.3,36.1 Z" fill="#2a5342"/>
+<path d="M526.4,47.6 L508.1,49.1 L528.9,31.3 Z" fill="#2e5949"/>
+<path d="M508.1,49.1 L500.3,25.7 L528.9,31.3 Z" fill="#2a5342"/>
+<path d="M478.1,95.4 L508.1,49.1 L511.3,92.6 Z" fill="#356050"/>
+<path d="M542.3,70.9 L508.1,49.1 L526.4,47.6 Z" fill="#457b60"/>
+<path d="M508.1,49.1 L542.3,70.9 L511.3,92.6 Z" fill="#285140"/>
+<path d="M482.3,36.1 L508.1,49.1 L462.7,85.4 Z" fill="#3d6858"/>
+<path d="M508.1,49.1 L478.1,95.4 L462.7,85.4 Z" fill="#4b8166"/>
+<path d="M500.3,25.7 L481.8,-15.9 L502.3,-19.6 Z" fill="#4a8162"/>
+<path d="M481.8,-15.9 L500.3,25.7 L470.3,-4.8 Z" fill="#406f56"/>
+<path d="M481.8,-15.9 L493.4,-27.1 L502.3,-19.6 Z" fill="#315a49"/>
+<path d="M451.1,76.9 L482.3,36.1 L462.7,85.4 Z" fill="#3e6d54"/>
+<path d="M451.1,76.9 L450.2,31.5 L482.3,36.1 Z" fill="#315c4c"/>
+<path d="M430.5,87.2 L451.1,76.9 L462.7,85.4 Z" fill="#447b5c"/>
+<path d="M541.8,113.1 L544.1,95.2 L567.8,95.8 Z" fill="#477d62"/>
+<path d="M544.1,95.2 L541.8,113.1 L522.7,95.7 Z" fill="#3e7556"/>
+<path d="M542.3,70.9 L544.1,95.2 L522.7,95.7 Z" fill="#3c7354"/>
+<path d="M630.4,114.1 L603.2,94.9 L626.3,91.7 Z" fill="#2f5a4a"/>
+<path d="M630.4,114.1 L626.3,91.7 L641.9,101.3 Z" fill="#37604f"/>
+<path d="M609.5,14.8 L643.3,22.5 L630.6,36.0 Z" fill="#27503f"/>
+<path d="M542.7,42.0 L542.3,70.9 L526.4,47.6 Z" fill="#305b4b"/>
+<path d="M542.7,42.0 L561.9,54.5 L542.3,70.9 Z" fill="#325b4a"/>
+<path d="M542.7,42.0 L526.4,47.6 L528.9,31.3 Z" fill="#3f7657"/>
+<path d="M561.9,54.5 L542.7,42.0 L567.4,50.6 Z" fill="#3f7657"/>
+<path d="M555.3,-5.1 L542.7,42.0 L528.9,31.3 Z" fill="#42785d"/>
+<path d="M567.4,50.6 L542.7,42.0 L555.3,-5.1 Z" fill="#4c8267"/>
+<path d="M555.0,-49.0 L559.4,-66.9 L578.0,-54.6 Z" fill="#487f60"/>
+<path d="M559.4,-66.9 L555.0,-49.0 L546.2,-61.1 Z" fill="#2f5847"/>
+<path d="M506.6,-36.5 L519.8,-45.9 L533.7,-29.2 Z" fill="#487e63"/>
+<path d="M529.2,-17.1 L542.0,-24.4 L555.3,-5.1 Z" fill="#2d5645"/>
+<path d="M542.0,-24.4 L529.2,-17.1 L533.7,-29.2 Z" fill="#3b6656"/>
+<path d="M542.0,-24.4 L580.0,-13.8 L555.3,-5.1 Z" fill="#457c5d"/>
+<path d="M571.6,134.3 L585.3,128.0 L595.1,137.4 Z" fill="#345d4c"/>
+<path d="M603.2,94.9 L585.3,128.0 L576.0,118.7 Z" fill="#4a8065"/>
+<path d="M541.8,113.1 L537.3,125.6 L522.7,95.7 Z" fill="#51876c"/>
+<path d="M537.3,125.6 L533.8,131.9 L522.7,95.7 Z" fill="#335c4b"/>
+<path d="M611.3,154.7 L613.0,156.5 L607.2,170.6 Z" fill="#407758"/>
+<path d="M642.6,-88.7 L673.2,-83.5 L689.8,-45.0 Z" fill="#2a5342"/>
+<path d="M673.2,-83.5 L677.2,-81.3 L689.8,-45.0 Z" fill="#2d5848"/>
+<path d="M630.6,36.0 L648.5,42.2 L646.9,57.0 Z" fill="#4c8267"/>
+<path d="M643.3,22.5 L648.5,42.2 L630.6,36.0 Z" fill="#295241"/>
+<path d="M648.5,42.2 L643.3,22.5 L658.4,30.7 Z" fill="#295241"/>
+<path d="M478.5,111.5 L474.4,100.3 L482.1,109.0 Z" fill="#2e5949"/>
+<path d="M474.4,100.3 L478.1,95.4 L482.1,109.0 Z" fill="#42795a"/>
+<path d="M478.1,95.4 L474.4,100.3 L462.7,85.4 Z" fill="#51876c"/>
+<path d="M474.4,100.3 L478.5,111.5 L450.5,130.8 Z" fill="#477e5f"/>
+<path d="M474.4,100.3 L430.1,109.0 L462.7,85.4 Z" fill="#3a6950"/>
+<path d="M430.1,109.0 L474.4,100.3 L450.5,130.8 Z" fill="#4c8267"/>
+<path d="M533.8,131.9 L535.7,140.2 L518.5,160.9 Z" fill="#406f56"/>
+<path d="M535.7,140.2 L546.9,167.1 L518.5,160.9 Z" fill="#3f6e55"/>
+<path d="M546.9,167.1 L535.7,140.2 L571.6,134.3 Z" fill="#315a49"/>
+<path d="M537.3,125.6 L535.7,140.2 L533.8,131.9 Z" fill="#467d5e"/>
+<path d="M535.7,140.2 L537.3,125.6 L571.6,134.3 Z" fill="#3e6d54"/>
+<path d="M445.6,19.1 L458.8,6.3 L451.3,21.2 Z" fill="#3a7152"/>
+<path d="M450.2,31.5 L445.6,19.1 L451.3,21.2 Z" fill="#2f5a4a"/>
+<path d="M445.6,19.1 L450.2,31.5 L432.4,32.0 Z" fill="#305b4b"/>
+<path d="M433.3,67.8 L430.5,87.2 L422.4,73.0 Z" fill="#3b7253"/>
+<path d="M433.3,67.8 L451.1,76.9 L430.5,87.2 Z" fill="#3b6656"/>
+<path d="M451.1,76.9 L433.3,67.8 L450.2,31.5 Z" fill="#498061"/>
+<path d="M555.3,73.4 L544.1,95.2 L542.3,70.9 Z" fill="#41775c"/>
+<path d="M567.8,95.8 L555.3,73.4 L555.6,73.2 Z" fill="#336249"/>
+<path d="M544.1,95.2 L555.3,73.4 L567.8,95.8 Z" fill="#325d4d"/>
+<path d="M630.4,114.1 L624.6,128.2 L603.2,94.9 Z" fill="#4b8263"/>
+<path d="M585.3,128.0 L624.6,128.2 L595.1,137.4 Z" fill="#365f4e"/>
+<path d="M624.6,128.2 L585.3,128.0 L603.2,94.9 Z" fill="#447a5f"/>
+<path d="M657.1,-5.5 L609.5,14.8 L608.6,-18.1 Z" fill="#335e4e"/>
+<path d="M657.1,-5.5 L643.3,22.5 L609.5,14.8 Z" fill="#2f5a4a"/>
+<path d="M658.4,30.7 L659.1,12.6 L668.3,19.1 Z" fill="#3a6950"/>
+<path d="M643.3,22.5 L659.1,12.6 L658.4,30.7 Z" fill="#4f856a"/>
+<path d="M657.1,-5.5 L659.1,12.6 L643.3,22.5 Z" fill="#36654c"/>
+<path d="M668.3,19.1 L659.1,12.6 L678.2,7.6 Z" fill="#52886d"/>
+<path d="M659.1,12.6 L657.1,-5.5 L678.2,7.6 Z" fill="#437259"/>
+<path d="M572.6,-72.6 L585.8,-78.4 L578.0,-54.6 Z" fill="#2d5645"/>
+<path d="M559.4,-66.9 L572.6,-72.6 L578.0,-54.6 Z" fill="#437a5b"/>
+<path d="M519.8,-45.9 L520.8,-46.6 L533.7,-29.2 Z" fill="#41775c"/>
+<path d="M543.4,-36.9 L555.0,-49.0 L580.0,-13.8 Z" fill="#315a49"/>
+<path d="M542.0,-24.4 L543.4,-36.9 L580.0,-13.8 Z" fill="#4c8364"/>
+<path d="M543.4,-36.9 L542.0,-24.4 L533.7,-29.2 Z" fill="#467c61"/>
+<path d="M555.0,-49.0 L543.4,-36.9 L533.0,-55.3 Z" fill="#437259"/>
+<path d="M543.4,-36.9 L520.8,-46.6 L533.0,-55.3 Z" fill="#2e5949"/>
+<path d="M520.8,-46.6 L543.4,-36.9 L533.7,-29.2 Z" fill="#37604f"/>
+<path d="M484.6,143.3 L468.1,137.5 L488.8,135.9 Z" fill="#365f4e"/>
+<path d="M484.6,143.3 L472.5,151.8 L468.1,137.5 Z" fill="#264f3e"/>
+<path d="M472.5,151.8 L484.6,143.3 L478.0,168.9 Z" fill="#50866b"/>
+<path d="M478.0,168.9 L484.6,143.3 L518.5,160.9 Z" fill="#3f6e55"/>
+<path d="M484.6,143.3 L488.8,135.9 L518.5,160.9 Z" fill="#345f4f"/>
+<path d="M585.3,128.0 L573.1,125.9 L576.0,118.7 Z" fill="#3e6d54"/>
+<path d="M573.1,125.9 L585.3,128.0 L571.6,134.3 Z" fill="#3e6d54"/>
+<path d="M573.1,125.9 L541.8,113.1 L576.0,118.7 Z" fill="#3d7455"/>
+<path d="M573.1,125.9 L537.3,125.6 L541.8,113.1 Z" fill="#305948"/>
+<path d="M537.3,125.6 L573.1,125.9 L571.6,134.3 Z" fill="#3b7253"/>
+<path d="M698.0,-56.6 L695.1,-69.2 L706.2,-68.1 Z" fill="#3d6858"/>
+<path d="M695.1,-69.2 L698.0,-56.6 L689.8,-45.0 Z" fill="#315c4c"/>
+<path d="M677.2,-81.3 L689.8,-75.8 L689.8,-45.0 Z" fill="#50866b"/>
+<path d="M689.8,-75.8 L695.1,-69.2 L689.8,-45.0 Z" fill="#3e7556"/>
+<path d="M695.1,-69.2 L689.8,-75.8 L706.2,-68.1 Z" fill="#417057"/>
+<path d="M673.2,-83.5 L689.8,-75.8 L677.2,-81.3 Z" fill="#3c6b52"/>
+<path d="M656.8,-91.2 L673.2,-83.5 L642.6,-88.7 Z" fill="#3b7253"/>
+<path d="M425.8,59.4 L433.3,67.8 L422.4,73.0 Z" fill="#3b7253"/>
+<path d="M618.8,142.3 L611.3,154.7 L595.1,137.4 Z" fill="#356050"/>
+<path d="M624.6,128.2 L618.8,142.3 L595.1,137.4 Z" fill="#325b4a"/>
+<path d="M618.8,142.3 L613.0,156.5 L611.3,154.7 Z" fill="#355e4d"/>
+<path d="M663.9,-13.0 L688.1,-4.0 L678.2,7.6 Z" fill="#2d5848"/>
+<path d="M657.1,-5.5 L663.9,-13.0 L678.2,7.6 Z" fill="#437a5b"/>
+<path d="M688.1,-4.0 L663.9,-13.0 L688.9,-24.5 Z" fill="#2d5848"/>
+<path d="M688.9,-24.5 L663.9,-13.0 L689.8,-45.0 Z" fill="#345f4f"/>
+<path d="M663.9,-13.0 L642.6,-88.7 L689.8,-45.0 Z" fill="#3e6d54"/>
+<path d="M642.6,-88.7 L663.9,-13.0 L628.4,-86.1 Z" fill="#4d8368"/>
+<path d="M628.4,-86.1 L663.9,-13.0 L608.6,-18.1 Z" fill="#4d8368"/>
+<path d="M663.9,-13.0 L657.1,-5.5 L608.6,-18.1 Z" fill="#315c4c"/>
+<path d="M433.3,67.8 L429.1,45.7 L450.2,31.5 Z" fill="#50866b"/>
+<path d="M425.8,59.4 L429.1,45.7 L433.3,67.8 Z" fill="#3c6757"/>
+<path d="M450.2,31.5 L429.1,45.7 L432.4,32.0 Z" fill="#2e5949"/>
+<path d="M254.2,252.7 L262.4,237.3 L270.5,247.2 Z" fill="#43795e"/>
+<path d="M323.0,249.3 L315.2,221.9 L331.7,224.5 Z" fill="#467c61"/>
+<path d="M255.0,127.3 L246.7,138.5 L249.2,124.4 Z" fill="#2f5847"/>
+<path d="M269.0,119.2 L255.0,127.3 L249.2,124.4 Z" fill="#2f5a4a"/>
+<path d="M338.0,244.8 L323.0,249.3 L331.7,224.5 Z" fill="#3d6c53"/>
+<path d="M273.1,213.2 L262.4,237.3 L254.2,214.2 Z" fill="#356050"/>
+<path d="M294.0,247.8 L315.2,221.9 L323.0,249.3 Z" fill="#4e8469"/>
+<path d="M294.0,247.8 L273.1,213.2 L315.2,221.9 Z" fill="#487f60"/>
+<path d="M294.0,247.8 L286.8,247.2 L273.1,213.2 Z" fill="#3a6555"/>
+<path d="M255.0,127.3 L276.8,137.8 L246.7,138.5 Z" fill="#3e6d54"/>
+<path d="M276.8,137.8 L244.2,152.6 L246.7,138.5 Z" fill="#335c4b"/>
+<path d="M276.8,137.8 L255.0,127.3 L269.0,119.2 Z" fill="#2d5848"/>
+<path d="M285.5,119.2 L276.8,137.8 L269.0,119.2 Z" fill="#3f6e55"/>
+<path d="M344.1,237.3 L338.0,244.8 L331.7,224.5 Z" fill="#3c6757"/>
+<path d="M349.9,288.7 L351.1,252.7 L363.1,273.3 Z" fill="#3a7152"/>
+<path d="M344.1,237.3 L351.1,252.7 L338.0,244.8 Z" fill="#487f60"/>
+<path d="M339.6,290.9 L351.1,252.7 L349.9,288.7 Z" fill="#37664d"/>
+<path d="M338.0,244.8 L351.1,252.7 L323.0,249.3 Z" fill="#3a6950"/>
+<path d="M273.1,213.2 L305.3,198.8 L315.2,221.9 Z" fill="#376252"/>
+<path d="M247.6,211.7 L274.7,188.4 L254.2,214.2 Z" fill="#53896e"/>
+<path d="M274.7,188.4 L244.2,152.6 L292.5,164.3 Z" fill="#37664d"/>
+<path d="M274.7,188.4 L305.3,198.8 L273.1,213.2 Z" fill="#4c8267"/>
+<path d="M253.0,307.1 L242.6,314.3 L249.2,296.4 Z" fill="#3a6555"/>
+<path d="M283.9,328.5 L264.6,329.6 L287.6,313.0 Z" fill="#45745b"/>
+<path d="M264.6,329.6 L253.0,307.1 L287.6,313.0 Z" fill="#4a8162"/>
+<path d="M242.6,314.3 L264.6,329.6 L252.5,337.4 Z" fill="#386353"/>
+<path d="M264.6,329.6 L242.6,314.3 L253.0,307.1 Z" fill="#345f4f"/>
+<path d="M311.2,267.1 L312.5,256.0 L323.0,249.3 Z" fill="#3d7455"/>
+<path d="M312.5,256.0 L294.0,247.8 L323.0,249.3 Z" fill="#38674e"/>
+<path d="M273.1,213.2 L279.6,244.7 L262.4,237.3 Z" fill="#51876c"/>
+<path d="M286.8,247.2 L279.6,244.7 L273.1,213.2 Z" fill="#52886d"/>
+<path d="M262.4,237.3 L279.6,244.7 L270.5,247.2 Z" fill="#3b6a51"/>
+<path d="M244.2,152.6 L292.1,157.8 L292.5,164.3 Z" fill="#3a6555"/>
+<path d="M292.5,164.3 L292.1,157.8 L300.4,173.2 Z" fill="#437a5b"/>
+<path d="M292.9,130.8 L285.5,119.2 L302.0,119.2 Z" fill="#477d62"/>
+<path d="M292.9,130.8 L276.8,137.8 L285.5,119.2 Z" fill="#37664d"/>
+<path d="M352.7,252.0 L356.4,250.2 L363.1,273.3 Z" fill="#417057"/>
+<path d="M351.1,252.7 L352.7,252.0 L363.1,273.3 Z" fill="#487f60"/>
+<path d="M352.7,252.0 L344.1,237.3 L356.4,250.2 Z" fill="#3d6c53"/>
+<path d="M352.7,252.0 L351.1,252.7 L344.1,237.3 Z" fill="#2e5949"/>
+<path d="M270.9,211.3 L273.1,213.2 L254.2,214.2 Z" fill="#37604f"/>
+<path d="M274.7,188.4 L270.9,211.3 L254.2,214.2 Z" fill="#356050"/>
+<path d="M270.9,211.3 L274.7,188.4 L273.1,213.2 Z" fill="#3f7657"/>
+<path d="M244.2,152.6 L240.9,186.0 L231.1,165.4 Z" fill="#3c6757"/>
+<path d="M274.7,188.4 L240.9,186.0 L244.2,152.6 Z" fill="#3d7455"/>
+<path d="M240.9,186.0 L274.7,188.4 L247.6,211.7 Z" fill="#3e7556"/>
+<path d="M305.3,198.8 L297.5,178.5 L300.4,173.2 Z" fill="#498061"/>
+<path d="M274.7,188.4 L297.5,178.5 L305.3,198.8 Z" fill="#3e6d54"/>
+<path d="M297.5,178.5 L292.5,164.3 L300.4,173.2 Z" fill="#386150"/>
+<path d="M297.5,178.5 L274.7,188.4 L292.5,164.3 Z" fill="#3a6555"/>
+<path d="M291.8,322.7 L283.9,328.5 L287.6,313.0 Z" fill="#2a5342"/>
+<path d="M291.8,322.7 L302.0,324.6 L283.9,328.5 Z" fill="#285140"/>
+<path d="M302.0,324.6 L310.5,314.8 L321.0,322.0 Z" fill="#3c6b52"/>
+<path d="M265.7,332.3 L264.6,329.6 L283.9,328.5 Z" fill="#50866b"/>
+<path d="M264.6,329.6 L265.7,332.3 L252.5,337.4 Z" fill="#335c4b"/>
+<path d="M321.0,322.0 L333.3,318.7 L339.9,319.5 Z" fill="#53896e"/>
+<path d="M338.2,308.5 L323.9,299.8 L339.6,290.9 Z" fill="#37664d"/>
+<path d="M343.4,295.3 L349.9,288.7 L358.1,306.6 Z" fill="#2e5949"/>
+<path d="M338.2,308.5 L343.4,295.3 L358.1,306.6 Z" fill="#4f856a"/>
+<path d="M343.4,295.3 L339.6,290.9 L349.9,288.7 Z" fill="#315a49"/>
+<path d="M343.4,295.3 L338.2,308.5 L339.6,290.9 Z" fill="#4b8263"/>
+<path d="M276.8,137.8 L283.9,142.3 L244.2,152.6 Z" fill="#2b5443"/>
+<path d="M283.9,142.3 L292.1,157.8 L244.2,152.6 Z" fill="#477e5f"/>
+<path d="M292.9,130.8 L283.9,142.3 L276.8,137.8 Z" fill="#27503f"/>
+<path d="M307.6,314.9 L310.5,314.8 L302.0,324.6 Z" fill="#437259"/>
+<path d="M307.6,314.9 L291.8,322.7 L287.6,313.0 Z" fill="#437a5b"/>
+<path d="M291.8,322.7 L307.6,314.9 L302.0,324.6 Z" fill="#3f7657"/>
+<path d="M304.1,293.2 L307.6,314.9 L287.6,313.0 Z" fill="#335e4e"/>
+<path d="M307.6,314.9 L304.1,293.2 L310.5,314.8 Z" fill="#3c6757"/>
+<path d="M279.6,244.7 L274.9,251.4 L270.5,247.2 Z" fill="#2e5949"/>
+<path d="M274.9,251.4 L279.6,244.7 L286.8,247.2 Z" fill="#325d4d"/>
+<path d="M279.0,259.9 L274.9,251.4 L286.8,247.2 Z" fill="#2e5746"/>
+<path d="M265.7,265.6 L274.9,251.4 L279.0,259.9 Z" fill="#437a5b"/>
+<path d="M265.7,265.6 L280.8,268.7 L272.1,278.4 Z" fill="#37604f"/>
+<path d="M280.8,268.7 L265.7,265.6 L279.0,259.9 Z" fill="#437259"/>
+<path d="M265.7,265.6 L254.2,252.7 L270.5,247.2 Z" fill="#4c8364"/>
+<path d="M274.9,251.4 L265.7,265.6 L270.5,247.2 Z" fill="#2a5342"/>
+<path d="M304.1,293.2 L314.0,274.0 L314.8,290.3 Z" fill="#447b5c"/>
+<path d="M314.0,274.0 L311.2,267.1 L323.0,249.3 Z" fill="#27503f"/>
+<path d="M351.1,252.7 L314.0,274.0 L323.0,249.3 Z" fill="#35644b"/>
+<path d="M314.0,274.0 L351.1,252.7 L339.6,290.9 Z" fill="#45745b"/>
+<path d="M333.3,318.7 L338.8,312.9 L339.9,319.5 Z" fill="#325d4d"/>
+<path d="M338.8,312.9 L333.3,318.7 L338.2,308.5 Z" fill="#335c4b"/>
+<path d="M338.8,312.9 L358.1,306.6 L339.9,319.5 Z" fill="#264f3e"/>
+<path d="M338.8,312.9 L338.2,308.5 L358.1,306.6 Z" fill="#52886d"/>
+<path d="M323.9,299.8 L317.9,291.4 L339.6,290.9 Z" fill="#356050"/>
+<path d="M317.9,291.4 L314.0,274.0 L339.6,290.9 Z" fill="#487e63"/>
+<path d="M314.0,274.0 L317.9,291.4 L314.8,290.3 Z" fill="#4a8065"/>
+<path d="M310.5,314.8 L321.4,318.6 L321.0,322.0 Z" fill="#43795e"/>
+<path d="M321.4,318.6 L333.3,318.7 L321.0,322.0 Z" fill="#38674e"/>
+<path d="M333.3,318.7 L325.2,305.9 L338.2,308.5 Z" fill="#4e8469"/>
+<path d="M325.2,305.9 L323.9,299.8 L338.2,308.5 Z" fill="#4f856a"/>
+<path d="M321.4,318.6 L325.2,305.9 L333.3,318.7 Z" fill="#447b5c"/>
+<path d="M323.9,299.8 L325.2,305.9 L310.5,314.8 Z" fill="#2a5342"/>
+<path d="M325.2,305.9 L321.4,318.6 L310.5,314.8 Z" fill="#366151"/>
+<path d="M280.8,268.7 L282.0,290.8 L272.1,278.4 Z" fill="#386353"/>
+<path d="M282.0,290.8 L304.1,293.2 L287.6,313.0 Z" fill="#457c5d"/>
+<path d="M257.4,281.0 L257.5,282.9 L247.6,291.2 Z" fill="#37604f"/>
+<path d="M257.5,282.9 L250.2,293.2 L247.6,291.2 Z" fill="#3d6c53"/>
+<path d="M257.4,298.9 L253.0,307.1 L249.2,296.4 Z" fill="#487f60"/>
+<path d="M253.0,307.1 L257.4,298.9 L287.6,313.0 Z" fill="#3b6a51"/>
+<path d="M257.4,298.9 L282.0,290.8 L287.6,313.0 Z" fill="#487e63"/>
+<path d="M257.5,282.9 L257.4,298.9 L250.2,293.2 Z" fill="#3d7455"/>
+<path d="M317.5,292.0 L317.9,291.4 L323.9,299.8 Z" fill="#3c6b52"/>
+<path d="M317.5,292.0 L304.1,293.2 L314.8,290.3 Z" fill="#4e8469"/>
+<path d="M304.1,293.2 L317.5,292.0 L310.5,314.8 Z" fill="#3f7657"/>
+<path d="M317.5,292.0 L323.9,299.8 L310.5,314.8 Z" fill="#3e6959"/>
+<path d="M282.0,290.8 L289.0,266.9 L304.1,293.2 Z" fill="#325d4d"/>
+<path d="M289.0,266.9 L282.0,290.8 L280.8,268.7 Z" fill="#498061"/>
+<path d="M314.0,274.0 L289.0,266.9 L311.2,267.1 Z" fill="#345d4c"/>
+<path d="M289.0,266.9 L314.0,274.0 L304.1,293.2 Z" fill="#4a8065"/>
+<path d="M289.0,266.9 L312.5,256.0 L311.2,267.1 Z" fill="#41775c"/>
+<path d="M312.5,256.0 L289.0,266.9 L294.0,247.8 Z" fill="#3f6e55"/>
+<path d="M289.0,266.9 L280.8,268.7 L279.0,259.9 Z" fill="#345d4c"/>
+<path d="M289.0,266.9 L286.8,247.2 L294.0,247.8 Z" fill="#407758"/>
+<path d="M289.0,266.9 L279.0,259.9 L286.8,247.2 Z" fill="#315a49"/>
+<path d="M264.7,283.1 L257.4,298.9 L257.5,282.9 Z" fill="#34634a"/>
+<path d="M264.7,283.1 L257.5,282.9 L257.4,281.0 Z" fill="#3b6656"/>
+<path d="M282.0,290.8 L264.7,283.1 L272.1,278.4 Z" fill="#355e4d"/>
+<path d="M257.4,298.9 L264.7,283.1 L282.0,290.8 Z" fill="#3d6858"/>
+<path d="M264.7,283.1 L265.7,265.6 L272.1,278.4 Z" fill="#36654c"/>
+<path d="M265.7,265.6 L264.7,283.1 L257.4,281.0 Z" fill="#457b60"/>
+<path d="M184.8,271.3 L174.9,293.8 L171.7,275.8 Z" fill="#376252"/>
+<path d="M174.9,293.8 L184.8,271.3 L198.1,298.9 Z" fill="#4c8267"/>
+<path d="M228.8,221.0 L212.8,230.7 L214.6,206.5 Z" fill="#3f6e55"/>
+<path d="M184.8,271.3 L204.9,294.1 L198.1,298.9 Z" fill="#45745b"/>
+<path d="M212.1,287.0 L204.9,294.1 L184.8,271.3 Z" fill="#2c5544"/>
+<path d="M217.8,286.1 L204.9,294.1 L212.1,287.0 Z" fill="#3d6858"/>
+<path d="M186.5,263.0 L184.8,271.3 L171.7,275.8 Z" fill="#2e5949"/>
+<path d="M190.3,258.7 L186.5,263.0 L171.7,252.7 Z" fill="#51876c"/>
+<path d="M237.7,212.5 L236.0,206.5 L244.2,224.5 Z" fill="#52886d"/>
+<path d="M228.8,221.0 L237.7,212.5 L244.2,224.5 Z" fill="#2f5a4a"/>
+<path d="M236.0,206.5 L232.4,210.9 L214.6,206.5 Z" fill="#3d7455"/>
+<path d="M232.4,210.9 L228.8,221.0 L214.6,206.5 Z" fill="#4c8267"/>
+<path d="M237.7,212.5 L232.4,210.9 L236.0,206.5 Z" fill="#3d6858"/>
+<path d="M232.4,210.9 L237.7,212.5 L228.8,221.0 Z" fill="#305b4b"/>
+<path d="M217.8,286.1 L228.7,272.1 L229.4,281.0 Z" fill="#4a8162"/>
+<path d="M228.7,272.1 L217.8,286.1 L212.1,287.0 Z" fill="#51876c"/>
+<path d="M215.1,243.2 L228.7,272.1 L200.9,254.3 Z" fill="#34634a"/>
+<path d="M212.8,230.7 L204.2,221.3 L214.6,206.5 Z" fill="#37664d"/>
+<path d="M204.2,221.3 L201.3,221.9 L214.6,206.5 Z" fill="#3b6656"/>
+<path d="M201.3,221.9 L204.2,221.3 L212.8,230.7 Z" fill="#345d4c"/>
+<path d="M190.2,239.0 L201.3,221.9 L212.8,230.7 Z" fill="#4a8162"/>
+<path d="M190.2,239.0 L215.1,243.2 L200.9,254.3 Z" fill="#447b5c"/>
+<path d="M201.3,221.9 L190.2,239.0 L176.6,232.2 Z" fill="#305948"/>
+<path d="M190.3,258.7 L190.2,239.0 L200.9,254.3 Z" fill="#467d5e"/>
+<path d="M190.2,239.0 L171.7,252.7 L176.6,232.2 Z" fill="#2f5847"/>
+<path d="M190.2,239.0 L190.3,258.7 L171.7,252.7 Z" fill="#305948"/>
+<path d="M228.7,272.1 L234.3,257.9 L229.4,281.0 Z" fill="#365f4e"/>
+<path d="M215.1,243.2 L234.3,257.9 L228.7,272.1 Z" fill="#355e4d"/>
+<path d="M228.7,272.1 L198.0,258.7 L200.9,254.3 Z" fill="#2f5847"/>
+<path d="M198.0,258.7 L228.7,272.1 L212.1,287.0 Z" fill="#41775c"/>
+<path d="M198.0,258.7 L212.1,287.0 L184.8,271.3 Z" fill="#366151"/>
+<path d="M198.0,258.7 L190.3,258.7 L200.9,254.3 Z" fill="#406f56"/>
+<path d="M186.5,263.0 L198.0,258.7 L184.8,271.3 Z" fill="#2f5847"/>
+<path d="M190.3,258.7 L198.0,258.7 L186.5,263.0 Z" fill="#427158"/>
+<path d="M236.0,239.9 L228.8,221.0 L244.2,224.5 Z" fill="#3e6959"/>
+<path d="M215.0,238.4 L190.2,239.0 L212.8,230.7 Z" fill="#2d5645"/>
+<path d="M190.2,239.0 L215.0,238.4 L215.1,243.2 Z" fill="#45745b"/>
+<path d="M228.8,221.0 L215.0,238.4 L212.8,230.7 Z" fill="#467c61"/>
+<path d="M234.3,257.9 L228.2,245.9 L234.5,251.5 Z" fill="#325b4a"/>
+<path d="M228.2,245.9 L236.0,239.9 L234.5,251.5 Z" fill="#417859"/>
+<path d="M220.3,242.8 L234.3,257.9 L215.1,243.2 Z" fill="#45745b"/>
+<path d="M220.3,242.8 L228.2,245.9 L234.3,257.9 Z" fill="#39684f"/>
+<path d="M215.0,238.4 L220.3,242.8 L215.1,243.2 Z" fill="#417057"/>
+<path d="M228.2,245.9 L220.3,242.8 L236.0,239.9 Z" fill="#396454"/>
+<path d="M236.0,239.9 L220.3,242.8 L228.8,221.0 Z" fill="#477e5f"/>
+<path d="M220.3,242.8 L215.0,238.4 L228.8,221.0 Z" fill="#477e5f"/>
+      </g>
+      <g class="edges">
+<line class="edge" id="e_u2_u0" data-a="u2" data-b="u0" data-key="Atlantic Technological University|Universidad de Extremadura" data-n="5" x1="195.14" y1="230.22" x2="219.98" y2="625.46" style="stroke-width:3.99"></line>
+<line class="edge" id="e_u2_u1" data-a="u2" data-b="u1" data-key="Atlantic Technological University|Universidade de Évora" data-n="1" x1="195.14" y1="230.22" x2="204.43" y2="633.37" style="stroke-width:2.4"></line>
+<line class="edge" id="e_u2_u8" data-a="u2" data-b="u8" data-key="Atlantic Technological University|University of Gävle" data-n="3" x1="195.14" y1="230.22" x2="617.83" y2="65.98" style="stroke-width:3.4"></line>
+<line class="edge" id="e_u5_u1" data-a="u5" data-b="u1" data-key="Otto von Guericke Universität Magdeburg|Universidade de Évora" data-n="3" x1="526.86" y1="285.29" x2="204.43" y2="633.37" style="stroke-width:3.4"></line>
+<line class="edge" id="e_u5_u4" data-a="u5" data-b="u4" data-key="Otto von Guericke Universität Magdeburg|Università di Parma" data-n="11" x1="526.86" y1="285.29" x2="505.41" y2="473.44" style="stroke-width:4.99"></line>
+<line class="edge" id="e_u5_u0" data-a="u5" data-b="u0" data-key="Otto von Guericke Universität Magdeburg|Universidad de Extremadura" data-n="1" x1="526.86" y1="285.29" x2="219.98" y2="625.46" style="stroke-width:2.4"></line>
+<line class="edge" id="e_u0_u8" data-a="u0" data-b="u8" data-key="Universidad de Extremadura|University of Gävle" data-n="2" x1="219.98" y1="625.46" x2="617.83" y2="65.98" style="stroke-width:2.99"></line>
+<line class="edge" id="e_u0_u1" data-a="u0" data-b="u1" data-key="Universidad de Extremadura|Universidade de Évora" data-n="191" x1="219.98" y1="625.46" x2="204.43" y2="633.37" style="stroke-width:9.0"></line>
+<line class="edge" id="e_u1_u7" data-a="u1" data-b="u7" data-key="Universidade de Évora|Universitatea din Oradea" data-n="1" x1="204.43" y1="633.37" x2="696.66" y2="415.83" style="stroke-width:2.4"></line>
+<line class="edge" id="e_u1_u8" data-a="u1" data-b="u8" data-key="Universidade de Évora|University of Gävle" data-n="3" x1="204.43" y1="633.37" x2="617.83" y2="65.98" style="stroke-width:3.4"></line>
+<line class="edge" id="e_u1_u6" data-a="u1" data-b="u6" data-key="Universidade de Évora|Wroclaw University of Environmental and Life Sciences" data-n="3" x1="204.43" y1="633.37" x2="616.14" y2="311.56" style="stroke-width:3.4"></line>
+<line class="edge" id="e_u0_u4" data-a="u0" data-b="u4" data-key="Universidad de Extremadura|Università di Parma" data-n="5" x1="219.98" y1="625.46" x2="505.41" y2="473.44" style="stroke-width:3.99"></line>
+<line class="edge" id="e_u1_u4" data-a="u1" data-b="u4" data-key="Universidade de Évora|Università di Parma" data-n="4" x1="204.43" y1="633.37" x2="505.41" y2="473.44" style="stroke-width:3.73"></line>
+<line class="edge" id="e_u4_u3" data-a="u4" data-b="u3" data-key="Università di Parma|Université d’Angers" data-n="3" x1="505.41" y1="473.44" x2="325.71" y2="404.73" style="stroke-width:3.4"></line>
+<line class="edge" id="e_u8_u4" data-a="u8" data-b="u4" data-key="University of Gävle|Università di Parma" data-n="3" x1="617.83" y1="65.98" x2="505.41" y2="473.44" style="stroke-width:3.4"></line>
+<line class="edge" id="e_u4_u6" data-a="u4" data-b="u6" data-key="Università di Parma|Wroclaw University of Environmental and Life Sciences" data-n="3" x1="505.41" y1="473.44" x2="616.14" y2="311.56" style="stroke-width:3.4"></line>
+<line class="edge" id="e_u5_u3" data-a="u5" data-b="u3" data-key="Otto von Guericke Universität Magdeburg|Université d’Angers" data-n="1" x1="526.86" y1="285.29" x2="325.71" y2="404.73" style="stroke-width:2.4"></line>
+<line class="edge" id="e_u1_u3" data-a="u1" data-b="u3" data-key="Universidade de Évora|Université d’Angers" data-n="1" x1="204.43" y1="633.37" x2="325.71" y2="404.73" style="stroke-width:2.4"></line>
+<line class="edge" id="e_u7_u3" data-a="u7" data-b="u3" data-key="Universitatea din Oradea|Université d’Angers" data-n="1" x1="696.66" y1="415.83" x2="325.71" y2="404.73" style="stroke-width:2.4"></line>
+<line class="edge" id="e_u8_u3" data-a="u8" data-b="u3" data-key="University of Gävle|Université d’Angers" data-n="1" x1="617.83" y1="65.98" x2="325.71" y2="404.73" style="stroke-width:2.4"></line>
+      </g>
+      <g class="nodes">
+<g class="node" data-uid="u0" data-name="Universidad de Extremadura" transform="translate(219.98,625.46)"><circle class="node-halo" r="36.94"></circle><circle class="node-dot" r="29.94"></circle></g>
+<g class="node" data-uid="u1" data-name="Universidade de Évora" transform="translate(204.43,633.37)"><circle class="node-halo" r="37.0"></circle><circle class="node-dot" r="30.0"></circle></g>
+<g class="node" data-uid="u2" data-name="Atlantic Technological University" transform="translate(195.14,230.22)"><circle class="node-halo" r="25.06"></circle><circle class="node-dot" r="18.06"></circle></g>
+<g class="node" data-uid="u3" data-name="Université d’Angers" transform="translate(325.71,404.73)"><circle class="node-halo" r="24.18"></circle><circle class="node-dot" r="17.18"></circle></g>
+<g class="node" data-uid="u4" data-name="Università di Parma" transform="translate(505.41,473.44)"><circle class="node-halo" r="29.38"></circle><circle class="node-dot" r="22.38"></circle></g>
+<g class="node" data-uid="u5" data-name="Otto von Guericke Universität Magdeburg" transform="translate(526.86,285.29)"><circle class="node-halo" r="27.15"></circle><circle class="node-dot" r="20.15"></circle></g>
+<g class="node" data-uid="u6" data-name="Wroclaw University of Environmental and Life Sciences" transform="translate(616.14,311.56)"><circle class="node-halo" r="23.66"></circle><circle class="node-dot" r="16.66"></circle></g>
+<g class="node" data-uid="u7" data-name="Universitatea din Oradea" transform="translate(696.66,415.83)"><circle class="node-halo" r="20.32"></circle><circle class="node-dot" r="13.32"></circle></g>
+<g class="node" data-uid="u8" data-name="University of Gävle" transform="translate(617.83,65.98)"><circle class="node-halo" r="26.09"></circle><circle class="node-dot" r="19.09"></circle></g>
+      </g>
+      <g class="labels" id="labelsLayer"></g>
+    </svg>
+    <div class="tooltip sans" id="tooltip"></div>
+  </div>
+
+  <aside id="panel" class="sans">
+    <div id="panelBody"></div>
+  </aside>
+</main>
+
+<footer class="sans">
+  EUGREEN · European University for Green Advancement — 2022–2026 co-authorship data drawn from Scopus / the alliance's bibliographic records. Schematic map (simplified projection), not a precision cartographic reference.
+</footer>
+
+<script>
+const DATA = {"unis": {"u0": {"name": "Universidad de Extremadura", "cc": "ES", "ccName": "Spain", "total": 204, "x": 219.98, "y": 625.46, "partners": [{"uid": "u1", "name": "Universidade de Évora", "n": 191}, {"uid": "u2", "name": "Atlantic Technological University", "n": 5}, {"uid": "u4", "name": "Università di Parma", "n": 5}, {"uid": "u8", "name": "University of Gävle", "n": 2}, {"uid": "u5", "name": "Otto von Guericke Universität Magdeburg", "n": 1}]}, "u1": {"name": "Universidade de Évora", "cc": "PT", "ccName": "Portugal", "total": 207, "x": 204.43, "y": 633.37, "partners": [{"uid": "u0", "name": "Universidad de Extremadura", "n": 191}, {"uid": "u4", "name": "Università di Parma", "n": 4}, {"uid": "u5", "name": "Otto von Guericke Universität Magdeburg", "n": 3}, {"uid": "u8", "name": "University of Gävle", "n": 3}, {"uid": "u6", "name": "Wroclaw University of Environmental and Life Sciences", "n": 3}, {"uid": "u2", "name": "Atlantic Technological University", "n": 1}, {"uid": "u7", "name": "Universitatea din Oradea", "n": 1}, {"uid": "u3", "name": "Université d’Angers", "n": 1}]}, "u2": {"name": "Atlantic Technological University", "cc": "IE", "ccName": "Ireland", "total": 9, "x": 195.14, "y": 230.22, "partners": [{"uid": "u0", "name": "Universidad de Extremadura", "n": 5}, {"uid": "u8", "name": "University of Gävle", "n": 3}, {"uid": "u1", "name": "Universidade de Évora", "n": 1}]}, "u3": {"name": "Université d’Angers", "cc": "FR", "ccName": "France", "total": 7, "x": 325.71, "y": 404.73, "partners": [{"uid": "u4", "name": "Università di Parma", "n": 3}, {"uid": "u5", "name": "Otto von Guericke Universität Magdeburg", "n": 1}, {"uid": "u1", "name": "Universidade de Évora", "n": 1}, {"uid": "u7", "name": "Universitatea din Oradea", "n": 1}, {"uid": "u8", "name": "University of Gävle", "n": 1}]}, "u4": {"name": "Università di Parma", "cc": "IT", "ccName": "Italy", "total": 29, "x": 505.41, "y": 473.44, "partners": [{"uid": "u5", "name": "Otto von Guericke Universität Magdeburg", "n": 11}, {"uid": "u0", "name": "Universidad de Extremadura", "n": 5}, {"uid": "u1", "name": "Universidade de Évora", "n": 4}, {"uid": "u3", "name": "Université d’Angers", "n": 3}, {"uid": "u8", "name": "University of Gävle", "n": 3}, {"uid": "u6", "name": "Wroclaw University of Environmental and Life Sciences", "n": 3}]}, "u5": {"name": "Otto von Guericke Universität Magdeburg", "cc": "DE", "ccName": "Germany", "total": 16, "x": 526.86, "y": 285.29, "partners": [{"uid": "u4", "name": "Università di Parma", "n": 11}, {"uid": "u1", "name": "Universidade de Évora", "n": 3}, {"uid": "u0", "name": "Universidad de Extremadura", "n": 1}, {"uid": "u3", "name": "Université d’Angers", "n": 1}]}, "u6": {"name": "Wroclaw University of Environmental and Life Sciences", "cc": "PL", "ccName": "Poland", "total": 6, "x": 616.14, "y": 311.56, "partners": [{"uid": "u1", "name": "Universidade de Évora", "n": 3}, {"uid": "u4", "name": "Università di Parma", "n": 3}]}, "u7": {"name": "Universitatea din Oradea", "cc": "RO", "ccName": "Romania", "total": 2, "x": 696.66, "y": 415.83, "partners": [{"uid": "u1", "name": "Universidade de Évora", "n": 1}, {"uid": "u3", "name": "Université d’Angers", "n": 1}]}, "u8": {"name": "University of Gävle", "cc": "SE", "ccName": "Sweden", "total": 12, "x": 617.83, "y": 65.98, "partners": [{"uid": "u2", "name": "Atlantic Technological University", "n": 3}, {"uid": "u1", "name": "Universidade de Évora", "n": 3}, {"uid": "u4", "name": "Università di Parma", "n": 3}, {"uid": "u0", "name": "Universidad de Extremadura", "n": 2}, {"uid": "u3", "name": "Université d’Angers", "n": 1}]}}, "pairs": {"u2_u0": {"a": "u2", "b": "u0", "aName": "Atlantic Technological University", "bName": "Universidad de Extremadura", "articles": [{"t": "Red Deer Resequencing Reveals the Importance of Sex Chromosomes for Reconstructing Late Quaternary Events", "y": "2025", "s": "Molecular Biology and Evolution", "d": "10.1093/molbev/msaf031"}, {"t": "Genome-wide SNP assessment of contemporary European red deer genetic structure highlights the distinction of peripheral populations and the main admixture zones in Europe", "y": "2024", "s": "Molecular Ecology", "d": "10.1111/mec.17508"}, {"t": "A systematic review on the application of Aikido as a psychosomatic tool in therapeutic setting (Part II); Una revisión sistemática sobre la aplicación del Aikido como una herramienta psicosomática en sectores terapéuticos (Parte II)", "y": "2023", "s": "Archivos de Medicina del Deporte", "d": "10.18176/archmeddeporte.00137"}, {"t": "A systematic review on the application of Aikido as a psychosomatic tool in therapeutic setting (Part I); Una revisión sistemática sobre la aplicación del Aikido como una herramienta psicosomática en sectores terapéuticos (Parte I)", "y": "2023", "s": "Archivos de Medicina del Deporte", "d": "10.18176/archmeddeporte.00136"}, {"t": "Influence of Aikido and Taijiquan-Tuishou on Contact Improvisation", "y": "2022", "s": "Frontiers in Communication", "d": "10.3389/fcomm.2022.983290"}]}, "u2_u1": {"a": "u2", "b": "u1", "aName": "Atlantic Technological University", "bName": "Universidade de Évora", "articles": [{"t": "Innovation brokers in High Nature Value farming areas: a strategic approach to engage effective socioeconomic and agroecological dynamics", "y": "2023", "s": "Ecology and Society", "d": "10.5751/ES-13522-280120"}]}, "u2_u8": {"a": "u2", "b": "u8", "aName": "Atlantic Technological University", "bName": "University of Gävle", "articles": [{"t": "Nursing home staff’s experiences and reflections regarding disordered eating among older adults: a focus group and vignette-based study", "y": "2026", "s": "Journal of Eating Disorders", "d": "10.1186/s40337-026-01668-w"}, {"t": "Factors Associated With Depressive and Anxiety Symptoms, Barriers, and Facilitators for Seeking Support Among European University Students: A Cross-Sectional Multicenter Study", "y": "2026", "s": "Depression and Anxiety", "d": "10.1155/da/8994187"}, {"t": "The importance of direct and indirect trophic interactions in determining the presence of a locally rare day-flying moth", "y": "2022", "s": "Oecologia", "d": "10.1007/s00442-021-05100-9"}]}, "u5_u1": {"a": "u5", "b": "u1", "aName": "Otto von Guericke Universität Magdeburg", "bName": "Universidade de Évora", "articles": [{"t": "Development and pilot testing of the quality of life of parents of children with achondroplasia questionnaire", "y": "2026", "s": "Journal of Patient-Reported Outcomes", "d": "10.1186/s41687-026-01127-9"}, {"t": "Recommendations for management of infants and young children with achondroplasia: Does clinical practice align?", "y": "2025", "s": "Orphanet Journal of Rare Diseases", "d": "10.1186/s13023-025-03621-7"}, {"t": "Coping and quality of life of parents of children with achondroplasia—a narrative review", "y": "2025", "s": "Frontiers in Medicine", "d": "10.3389/fmed.2025.1500389"}]}, "u5_u4": {"a": "u5", "b": "u4", "aName": "Otto von Guericke Universität Magdeburg", "bName": "Università di Parma", "articles": [{"t": "The CAMUS Initiative: A Multiphase, Multicentre International Collaboration to Redefine Risk Stratification, Reporting, and Grading of Surgical Complications in Urology", "y": "2026", "s": "European Urology Open Science", "d": "10.1016/j.euros.2026.01.012"}, {"t": "Emergent Carotid Stenting for Acute Anterior Circulation Ischemic Stroke With Tandem Lesions: The Multicenter CERES-TANDEM Study", "y": "2026", "s": "Neurology", "d": "10.1212/WNL.0000000000214528"}, {"t": "Phonons in Single-Domain κ-Ga2O3 Studied by Polarization Angle-Resolved Raman Scattering", "y": "2026", "s": "Advanced Electronic Materials", "d": "10.1002/aelm.202500497"}, {"t": "Transferability of European-derived Alzheimer’s disease polygenic risk scores across multiancestry populations", "y": "2025", "s": "Nature Genetics", "d": "10.1038/s41588-025-02227-w"}, {"t": "Atrial cardiomyopathy revisited - evolution of a concept: a clinical consensus statement of the European Heart Rhythm Association (EHRA) of the ESC, the Heart Rhythm Society (HRS), the Asian Pacific Heart Rhythm Society (APHRS), and the Latin American Heart Rhythm Society (LAHRS)", "y": "2024", "s": "Europace", "d": "10.1093/europace/euae204"}, {"t": "Core outcome measurement set for research and clinical practice in post-COVID-19 condition (long COVID) in children and young people: an international Delphi consensus study “PC-COS Children”", "y": "2024", "s": "European Respiratory Journal", "d": "10.1183/13993003.01761-2023"}, {"t": "Gold(III) complexes with thiosemicarbazone ligands: insights into their cytotoxic effects on lung cancer cells", "y": "2024", "s": "Journal of Inorganic Biochemistry", "d": "10.1016/j.jinorgbio.2023.112438"}, {"t": "Genetic Associations between Modifiable Risk Factors and Alzheimer Disease", "y": "2023", "s": "JAMA Network Open", "d": "10.1001/jamanetworkopen.2023.13734"}, {"t": "Multiancestry analysis of the HLA locus in Alzheimer's and Parkinson's diseases uncovers a shared adaptive immune response mediated by HLA-DRB1∗04 subtypes", "y": "2023", "s": "Proceedings of the National Academy of Sciences of the United States of America", "d": "10.1073/pnas.2302720120"}, {"t": "Tackling Disorder in γ-Ga2O3", "y": "2022", "s": "Advanced Materials", "d": "10.1002/adma.202204217"}, {"t": "Association of Rare APOE Missense Variants V236E and R251G with Risk of Alzheimer Disease", "y": "2022", "s": "JAMA Neurology", "d": "10.1001/jamaneurol.2022.1166"}]}, "u5_u0": {"a": "u5", "b": "u0", "aName": "Otto von Guericke Universität Magdeburg", "bName": "Universidad de Extremadura", "articles": [{"t": "Training During the COVID-19 Lockdown: Knowledge, Beliefs, and Practices of 12,526 Athletes from 142 Countries and Six Continents", "y": "2022", "s": "Sports Medicine", "d": "10.1007/s40279-021-01573-z"}]}, "u0_u8": {"a": "u0", "b": "u8", "aName": "Universidad de Extremadura", "bName": "University of Gävle", "articles": [{"t": "Smartphone IMU Sensors for Human Identification through Hip Joint Angle Analysis", "y": "2024", "s": "Sensors", "d": "10.3390/s24154769"}, {"t": "Exploring the Influence of a Passive Exoskeleton on Range of Motion and Step Length During Walking", "y": "2024", "s": "", "d": "10.1109/ICIEA61579.2024.10665200"}]}, "u0_u1": {"a": "u0", "b": "u1", "aName": "Universidad de Extremadura", "bName": "Universidade de Évora", "articles": [{"t": "From Performance to Health: A Global Scientometric Analysis of the Evolution of CrossFit Research", "y": "2026", "s": "Sports", "d": "10.3390/sports14050213"}, {"t": "Spanish SME companies’ readiness for European sustainability reporting standards compliance", "y": "2026", "s": "Journal of Global Responsibility", "d": "10.1108/JGR-12-2024-0257"}, {"t": "Numerical Investigation of Surface–Atmosphere Interaction and Fire Danger in Northern Portugal: Insights into the Wildfires on July 29, 2025", "y": "2026", "s": "Fire", "d": "10.3390/fire9030111"}, {"t": "The impact of wildfires on tourism: A systematic literature review", "y": "2026", "s": "Journal of Tourism and Development", "d": "10.34624/gjbabd77"}, {"t": "Psychosocial and Body Image Variations in Professional Dancers: A Prospective Longitudinal Observational Study", "y": "2026", "s": "Sports", "d": "10.3390/sports14030099"}, {"t": "Solar Observations by Angelo Secchi: An Analysis of His Diary and Annotations in His Sunspot Drawings", "y": "2026", "s": "Astrophysical Journal", "d": "10.3847/1538-4357/ae47e3"}, {"t": "Review on Treatment Pathways and Adsorptive Approaches for Dye-Contaminated Wastewater", "y": "2026", "s": "Processes", "d": "10.3390/pr14060898"}, {"t": "Purpose-Driven Smart Specialization (S3+P): A Multilevel Model for Sustainable Regional Development", "y": "2026", "s": "Systems", "d": "10.3390/systems14040409"}, {"t": "Analysis of the 8 September 2023 Al Haouz (Morocco) earthquake source using seismic and geodetic data", "y": "2026", "s": "Journal of Seismology", "d": "10.1007/s10950-025-10357-1"}, {"t": "Prevalence and Persistence of Post-COVID-19 Condition After Critical Care: 32-Month Follow-Up", "y": "2026", "s": "Journal of Clinical Medicine", "d": "10.3390/jcm15020711"}, {"t": "On the Uncertainties of the Sunspot Area Measurements", "y": "2026", "s": "Astrophysical Journal", "d": "10.3847/1538-4357/ae4c51"}, {"t": "Phenological Development and Growth Responses of Industrial Hemp (Cannabis sativa L.) to Sowing Dates and Climatic Conditions in Elvas, Portugal", "y": "2026", "s": "Agronomy", "d": "10.3390/agronomy16020271"}, {"t": "Soil Compaction in Montado Mediterranean Ecosystem: Dolomitic Limestone Application, Sheep Grazing Management and Tree Effects", "y": "2026", "s": "Sustainability (Switzerland)", "d": "10.3390/su18083962"}, {"t": "Acute Autonomic and Perceptual Responses to Resistance Training Performed With and Without Blood Flow Restriction", "y": "2026", "s": "Journal of Functional Morphology and Kinesiology", "d": "10.3390/jfmk11020235"}, {"t": "Comparisons of external load variables among periods, playing status, and positions in professional soccer team: A case study", "y": "2026", "s": "Proceedings of the Institution of Mechanical Engineers, Part P: Journal of Sports Engineering and Technology", "d": "10.1177/17543371231225285"}, {"t": "Solar Activity Spikes: A Comparative Analysis of Monthly Smoothed and Unsmoothed Sunspot Numbers", "y": "2026", "s": "Universe", "d": "10.3390/universe12020028"}, {"t": "A bibliometric analysis of research on fibromyalgia and physical function based on the Web of Science core collection", "y": "2026", "s": "Egyptian Rheumatology and Rehabilitation", "d": "10.1186/s43166-025-00368-8"}, {"t": "Gender-Based Violence in Women Over 50: Psychological Impact and Suicide Risk Factors", "y": "2026", "s": "Clinical Psychology and Psychotherapy", "d": "10.1002/cpp.70301"}, {"t": "Effect of Harvest Date on Fruit Quality and Post-Harvest Storability of Three Different Peach Cultivars", "y": "2026", "s": "Foods", "d": "10.3390/foods15030421"}, {"t": "Free amino acids accelerate the time-dependent inactivation of rat liver nucleotide pyrophosphatase/phosphodiesterase Enpp3 elicited by EDTA: Free amino acids accelerate the time-dependent inactivation..: A. Romero et al.", "y": "2025", "s": "Amino Acids", "d": "10.1007/s00726-024-03431-4"}, {"t": "Nutritional Status Assessment Using the Patient-Generated Subjective Global Assessment (PG-SGA) in Individuals with Colorectal Cancer Undergoing Chemotherapy Regimens", "y": "2025", "s": "Journal of Clinical Medicine", "d": "10.3390/jcm14186664"}, {"t": "Synoptic and Regional Meteorological Drivers of a Wildfire in the Wildland–Urban Interface of Faro (Portugal)", "y": "2025", "s": "Fire", "d": "10.3390/fire8090362"}, {"t": "Current Context of Cannabis sativa Cultivation and Parameters Influencing Its Development", "y": "2025", "s": "Agriculture (Switzerland)", "d": "10.3390/agriculture15151635"}, {"t": "Unreleased sunspot records by Hacki in 1671 during the Maunder Minimum", "y": "2025", "s": "Advances in Space Research", "d": "10.1016/j.asr.2025.05.037"}, {"t": "Cross-Cultural Differences in Fear of Death, Emotional Intelligence, Coping with Death, and Burnout Among Nursing Students: A Comparative Study Between Spain and Portugal", "y": "2025", "s": "Behavioral Sciences", "d": "10.3390/bs15070993"}, {"t": "DOES THE MENSTRUAL CYCLE INFLUENCE THE SPORTS PERFORMANCE OF WOMEN VOLLEYBALL PLAYERS? A PILOT STUDY; ¿INFLUYE EL CICLO MENSTRUAL EN EL RENDIMIENTO DEPORTIVO DE LAS JUGADORAS DE VOLEIBOL? UN ESTUDIO PILOTO", "y": "2025", "s": "Cultura, Ciencia y Deporte", "d": "10.12800/ccd.v20i64.2199"}, {"t": "Scientific Production on Physical Activity, Physical Education, Global Warming and Climate Change: A Bibliometric Analysis", "y": "2025", "s": "Societies", "d": "10.3390/soc15060161"}, {"t": "Physiological Correspondence Between Different Indexes of High-Intensity Endurance Exercise in Young Male Runners", "y": "2025", "s": "Sports", "d": "10.3390/sports13060167"}, {"t": "Trends and Scientific Production on Isometric Training: A Bibliometric Analysis", "y": "2025", "s": "Sports", "d": "10.3390/sports13050145"}, {"t": "Evaluating the Effects of Sensorimotor Training on the Physical Capacities of Older People", "y": "2025", "s": "European Journal of Investigation in Health, Psychology and Education", "d": "10.3390/ejihpe15040050"}, {"t": "The Influence of Boccia Classification on the Performance in International-level Events; Influencia de la Clasificación de Bocha en el Rendimiento en Eventos de Nivel Internacional", "y": "2025", "s": "E-Balonmano.com: Revista de Ciencias del Deporte", "d": "10.17398/1885-7019.21.277"}, {"t": "Variations of distance and accelerometry-based GPS measures and their influence on body composition in professional women soccer players", "y": "2025", "s": "Proceedings of the Institution of Mechanical Engineers, Part P: Journal of Sports Engineering and Technology", "d": "10.1177/17543371221122076"}, {"t": "Gender Participation and Performance in Boccia International-Level Events", "y": "2025", "s": "Journal of Functional Morphology and Kinesiology", "d": "10.3390/jfmk10010087"}, {"t": "The anomalously thundery month of June 1925 in southwest Spain: description and synoptic analysis", "y": "2025", "s": "Natural Hazards and Earth System Sciences", "d": "10.5194/nhess-25-305-2025"}, {"t": "Physical Exercise Interventions Using Virtual Reality in Children and Adolescents with Cerebral Palsy: Systematic Review", "y": "2025", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare13020189"}, {"t": "Sustainable Intensification of the Montado Ecosystem: Evaluation of Sheep Stocking Methods and Dolomitic Limestone Application", "y": "2025", "s": "Sustainability (Switzerland)", "d": "10.3390/su17010363"}, {"t": "Creatine Supplementation Beyond Athletics: Benefits of Different Types of Creatine for Women, Vegans, and Clinical Populations—A Narrative Review", "y": "2025", "s": "Nutrients", "d": "10.3390/nu17010095"}, {"t": "Research on cyberbullying and suicide: a bibliometric analysis", "y": "2025", "s": "Psychology in the Schools", "d": "10.1002/pits.23327"}, {"t": "Exploratory analysis of atmospheric modelling use over Pantanal wildfires; Análise exploratória do uso da modelagem atmosférica sobre os incêndios florestais no Pantanal", "y": "2025", "s": "RA'E GA - O Espaco Geografico em Analise", "d": "10.5380/raega.v63i2.99952"}, {"t": "Evolution of documents related to strength training research on competitive swimmers: a bibliometric review", "y": "2025", "s": "Frontiers in Sports and Active Living", "d": "10.3389/fspor.2025.1603576"}, {"t": "Evolution of documents related to performance in boccia: a paralympic sport bibliometric analysis", "y": "2025", "s": "Frontiers in Sports and Active Living", "d": "10.3389/fspor.2025.1560803"}, {"t": "Effectiveness of different physical activity programs in improving older adults’ physical capacities: a randomized controlled trial", "y": "2025", "s": "Frontiers in Physiology", "d": "10.3389/fphys.2025.1540776"}, {"t": "The Impact of Yoga Practice on Health, Strength, and Respiratory Capacity in Portuguese Airforce Pilots: an Applied Psychophysiology and Biofeedback Approach", "y": "2025", "s": "Applied Psychophysiology Biofeedback", "d": "10.1007/s10484-025-09719-9"}, {"t": "Effect of whole-body vibration training on bone mineral density in older adults: a systematic review and meta-analysis", "y": "2025", "s": "PeerJ", "d": "10.7717/peerj.19230"}, {"t": "Evolution of research related to how a sedentary lifestyle influences the aging process: a bibliometric review", "y": "2024", "s": "Journal of Public Health (Germany)", "d": "10.1007/s10389-024-02327-7"}, {"t": "Relationship Between Frequency of Physical Activity, Functional Mobility, and Self-Perceived Health in People with Different Levels of Pain: A Cross-Sectional Study", "y": "2024", "s": "Journal of Functional Morphology and Kinesiology", "d": "10.3390/jfmk9040198"}, {"t": "Characterization of the External Load of Soccer Goalkeepers Depending on the Category and Sports Context", "y": "2024", "s": "Sports", "d": "10.3390/sports12120318"}, {"t": "Relationship of Pain, Depression, Fatigue, and Sleep Problems with Functional Capacity, Balance, and Fear of Falling in Women with Fibromyalgia: Cross-Sectional Study", "y": "2024", "s": "Nursing Reports", "d": "10.3390/nursrep14040207"}, {"t": "European pollen reanalysis, 1980–2022, for alder, birch, and olive", "y": "2024", "s": "Scientific Data", "d": "10.1038/s41597-024-03686-2"}, {"t": "Load Monitoring Methods for Controlling Training Effectiveness on Physical Conditioning and Planning Involvement: A Narrative Review", "y": "2024", "s": "Applied Sciences (Switzerland)", "d": "10.3390/app142210465"}, {"t": "Are we crossing a minimum of the Gleissberg centennial cycle? Multivariate machine learning-based prediction of the sunspot number using different proxies of solar activity and spectral analysis", "y": "2024", "s": "Advances in Space Research", "d": "10.1016/j.asr.2024.08.033"}, {"t": "Estimation of Dry Matter Yield in Mediterranean Pastures: Comparative Study between Rising Plate Meter and Grassmaster II Probe", "y": "2024", "s": "Agriculture (Switzerland)", "d": "10.3390/agriculture14101737"}, {"t": "Crude Protein as an Indicator of Pasture Availability and Quality: A Validation of Two Complementary Sensors", "y": "2024", "s": "Agronomy", "d": "10.3390/agronomy14102310"}, {"t": "A Case Study of the Possible Meteorological Causes of Unexpected Fire Behavior in the Pantanal Wetland, Brazil", "y": "2024", "s": "Earth (Switzerland)", "d": "10.3390/earth5030028"}, {"t": "Physical Function, Self-Perceived Physical Fitness, Falls, Quality of Life and Degree of Disability According to Fear and Risk of Falling in Women with Fibromyalgia", "y": "2024", "s": "Journal of Functional Morphology and Kinesiology", "d": "10.3390/jfmk9030174"}, {"t": "Promoting workplace retention during global crises: An international survey of the preventive role of psychological support among victims of social discrimination in long-term care facilities", "y": "2024", "s": "Geriatric Nursing", "d": "10.1016/j.gerinurse.2024.06.021"}, {"t": "Predicting Solar Cycle 26 Using the Polar Flux as a Precursor, Spectral Analysis, and Machine Learning: Crossing a Gleissberg Minimum?", "y": "2024", "s": "Solar Physics", "d": "10.1007/s11207-024-02361-4"}, {"t": "Hemispheric Sunspot Number Prediction for Solar Cycles 25 and 26 Using Spectral Analysis and Machine Learning Techniques", "y": "2024", "s": "Solar Physics", "d": "10.1007/s11207-024-02363-2"}, {"t": "Pasture Quality Assessment through NDVI Obtained by Remote Sensing: A Validation Study in the Mediterranean Silvo-Pastoral Ecosystem", "y": "2024", "s": "Agriculture (Switzerland)", "d": "10.3390/agriculture14081350"}, {"t": "Relationship between Depression and Physical Activity Frequency in Spanish People with Low, Medium, and High Pain Levels", "y": "2024", "s": "Journal of Personalized Medicine", "d": "10.3390/jpm14080855"}, {"t": "Comparative Efficacy of Neuromodulation and Structured Exercise Program on Autonomic Modulation in Fibromyalgia Patients: Pilot Study", "y": "2024", "s": "Journal of Clinical Medicine", "d": "10.3390/jcm13154288"}, {"t": "ANALYSIS OF SCIENTIFIC PRODUCTION IN STREET SPORTS WITH ACROBATIC COMPONENTS", "y": "2024", "s": "Science of Gymnastics Journal", "d": "10.52165/sgj.16.2.343-363"}, {"t": "Technological Upgrade of a Vicon RS-EDW Spreader: Development of a Microcontroller for Variable Rate Application", "y": "2024", "s": "AgriEngineering", "d": "10.3390/agriengineering6020082"}, {"t": "Sports Performance Analysis of Wheelchair Basketball Players Considering Functional Classification", "y": "2024", "s": "Applied Sciences (Switzerland)", "d": "10.3390/app14125111"}, {"t": "Relationship between Femur Mineral Content and Local Muscle Strength and Mass", "y": "2024", "s": "Journal of Functional Morphology and Kinesiology", "d": "10.3390/jfmk9020069"}, {"t": "Understanding Solar Activity after the Maunder Minimum: Sunspot Records by Rost and Alischer", "y": "2024", "s": "Astrophysical Journal", "d": "10.3847/1538-4357/ad3fb9"}, {"t": "Associations between Physical Activity Frequency in Leisure Time and Subjective Cognitive Limitations in Middle-Aged Spanish Adults: A Cross-Sectional Study", "y": "2024", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare12111056"}, {"t": "Arithmetic Varieties of Numerical Semigroups", "y": "2024", "s": "Results in Mathematics", "d": "10.1007/s00025-024-02212-5"}, {"t": "Influence of the importance of the point and service tactical position in the shot following the return in men’s and women’s professional padel", "y": "2024", "s": "International Journal of Sports Science and Coaching", "d": "10.1177/17479541231163535"}, {"t": "The impact of winning or losing a padel match on heart rate variability", "y": "2024", "s": "International Journal of Sports Science and Coaching", "d": "10.1177/17479541221140066"}, {"t": "CSR information, environmental awareness and CSR diffusion in SMEs of Angola", "y": "2024", "s": "Journal of Accounting in Emerging Economies", "d": "10.1108/JAEE-10-2022-0280"}, {"t": "Celiac disease and sports performance. systematic review; Celiaquía y rendimiento deportivo. Una revisión sistemática", "y": "2024", "s": "Archivos Latinoamericanos de Nutricion", "d": "10.37527/2024.74.2.007"}, {"t": "Sports Analysis of Wheelchair Basketball Game Statistics", "y": "2024", "s": "Applied Sciences (Switzerland)", "d": "10.3390/app14072923"}, {"t": "Comparing Video Analysis to Computerized Detection of Limb Position for the Diagnosis of Movement Control during Back Squat Exercise with Overload", "y": "2024", "s": "Sensors", "d": "10.3390/s24061910"}, {"t": "Comparative Analysis of Psychophysiological Responses in Fibromyalgia Patients: Evaluating Neuromodulation Alone, Neuromodulation Combined with Virtual Reality, and Exercise Interventions", "y": "2024", "s": "Medicina (Lithuania)", "d": "10.3390/medicina60030404"}, {"t": "Physical Activity Is Associated with the Incidence of Depression in United States Adults from the NHANES 2013–18: A Cross-Sectional Study", "y": "2024", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare12050552"}, {"t": "Temporal Stability of Management Zone Patterns: Case Study with Contact and Non-Contact Soil Electrical Conductivity Sensors in Dryland Pastures", "y": "2024", "s": "Sensors", "d": "10.3390/s24051623"}, {"t": "An Overview of Sunspot Observations in the Early Maunder Minimum: 1645–1659", "y": "2024", "s": "Monthly Notices of the Royal Astronomical Society", "d": "10.1093/mnras/stad3922"}, {"t": "Editorial: Muscle oxygenation and vascular adaptations in sports performance and rehabilitation", "y": "2024", "s": "Frontiers in Physiology", "d": "10.3389/fphys.2024.1502939"}, {"t": "Analysis of the publications related to sports performance in wheelchair basketball: bibliometric review; Análisis de las publicaciones relacionadas con el rendimiento deportivo en baloncesto en silla de ruedas: revisión bibliométrica", "y": "2024", "s": "Retos", "d": "10.47197/retos.v61.105959"}, {"t": "Breeding in bread-making wheat varieties for Mediterranean climate: the need to get resilient varieties", "y": "2024", "s": "Frontiers in Nutrition", "d": "10.3389/fnut.2024.1393076"}, {"t": "Evolution of documents related to the influence of physical activity and functional capacity throughout the aging process: a bibliometric review", "y": "2024", "s": "Frontiers in Physiology", "d": "10.3389/fphys.2024.1427038"}, {"t": "Ruralities, cultural heritage, associationism and tourism in times of digital humanities; Ruralidades, património cultural, associativismo e turismo nos tempos das humanidades digitais", "y": "2024", "s": "PASOS Revista de Turismo y Patrimonio Cultural", "d": "10.25145/j.pasos.2024.22.040"}, {"t": "Comparative efficacy of neuromodulation and structured exercise program on pain and muscle oxygenation in fibromyalgia patients: a randomized crossover study", "y": "2024", "s": "Frontiers in Physiology", "d": "10.3389/fphys.2024.1414100"}, {"t": "Evaluation of the association of physical activity levels with self-perceived health, depression, and anxiety in Spanish individuals with high cholesterol levels: a retrospective cross-sectional study", "y": "2024", "s": "PeerJ", "d": "10.7717/peerj.17169"}, {"t": "Analysis of the competitive demands in 7-a-side football players with cerebral palsy", "y": "2024", "s": "Apunts Sports Medicine", "d": "10.1016/j.apunsm.2024.100434"}, {"t": "A regional Report Card on physical activity in children and adolescents: The case of Extremadura (Spain) in the Global Matrix 4.0", "y": "2024", "s": "Journal of Exercise Science and Fitness", "d": "10.1016/j.jesf.2023.10.005"}, {"t": "Long-term care facilities' response to the COVID-19 pandemic: An international, cross-sectional survey", "y": "2024", "s": "Journal of Advanced Nursing", "d": "10.1111/jan.15785"}, {"t": "Use of the Hyperbaric Chamber Versus Conventional Treatment for the Prevention of Amputation in Chronic Diabetic Foot and the Influence on Fitting and Rehabilitation: A Systematic Review", "y": "2024", "s": "International Journal of Vascular Medicine", "d": "10.1155/IJVM/8450783"}, {"t": "Solar Observations by Angelo Secchi. I. Digitization of Original Documents and Analysis of Group Numbers over the Period of 1853-1878", "y": "2023", "s": "Astrophysical Journal, Supplement Series", "d": "10.3847/1538-4365/ad0886"}, {"t": "Prediction of fatty acid composition in intact and minced fat of European autochthonous pigs breeds by near infrared spectroscopy", "y": "2023", "s": "Scientific Reports", "d": "10.1038/s41598-023-34996-x"}, {"t": "Fire-Smart Territories: a proof of concept based on Mosaico approach", "y": "2023", "s": "Landscape Ecology", "d": "10.1007/s10980-023-01618-w"}, {"t": "Local Public Administration in the Process of Implementing Sustainable Development Goals", "y": "2023", "s": "Sustainability (Switzerland)", "d": "10.3390/su152115263"}, {"t": "Using a Non-Contact Sensor to Delineate Management Zones in Vineyards and Validation with the Rasch Model", "y": "2023", "s": "Sensors", "d": "10.3390/s23229183"}, {"t": "A fuzzy cognitive map-based algorithm for predicting water consumption in Spanish healthcare centres", "y": "2023", "s": "Building Simulation", "d": "10.1007/s12273-023-1028-y"}, {"t": "Characterization of Tajogaite volcanic plumes detected over the Iberian Peninsula from a set of satellite and ground-based remote sensing instrumentation", "y": "2023", "s": "Remote Sensing of Environment", "d": "10.1016/j.rse.2023.113684"}, {"t": "Prediction of the Maximum Amplitude of Solar Cycle 25 Using the Ascending Inflection Point", "y": "2023", "s": "Solar Physics", "d": "10.1007/s11207-023-02194-7"}, {"t": "Validation of precipitable water vapor estimates from an inexpensive infrared thermometer", "y": "2023", "s": "Journal of Atmospheric and Solar-Terrestrial Physics", "d": "10.1016/j.jastp.2023.106107"}, {"t": "Analysis of the finalists smashes in professional padel; ANÁLISIS DE LOS REMATES FINALISTAS EN PÁDEL PROFESIONAL", "y": "2023", "s": "E-Balonmano.com: Revista de Ciencias del Deporte", "d": "10.17398/1885-7019.19.117"}, {"t": "Analysis of sunshine duration and cloud cover trends in Lisbon for the period 1890–2018", "y": "2023", "s": "Atmospheric Research", "d": "10.1016/j.atmosres.2023.106804"}, {"t": "Effects of a 4-Week After-School Physical Literacy Program on Health-Related Quality of Life and Symptomatology in Schoolchildren with ADHD: A Study Protocol", "y": "2023", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare11142113"}, {"t": "Definition and Validation of Vineyard Management Zones Based on Soil Apparent Electrical Conductivity and Altimetric Survey", "y": "2023", "s": "Environments - MDPI", "d": "10.3390/environments10070117"}, {"t": "Brain endurance training improves shot speed and accuracy in grassroots padel players", "y": "2023", "s": "Journal of Science and Medicine in Sport", "d": "10.1016/j.jsams.2023.06.002"}, {"t": "Physical fatigue exacerbates the negative effects of mental fatigue on soccer performance in practitioners", "y": "2023", "s": "European Journal of Human Movement", "d": "10.21134/eurjhm.2023.50.7"}, {"t": "Use of technological supports in academic tasks. A study with Higher Education students; Ús de suports tecnològics en tasques acadèmiques. Un estudi amb estudiants d'Educació Superior; Uso de los soportes tecnológicos en tareas académicas. Un estudio con estudiantes de Educación Superior", "y": "2023", "s": "Digital Education Review", "d": "10.1344/der.2023.43.85-100"}, {"t": "Sadness and Loneliness in Adolescents with Physical, Sensory or Health Problems in Low/Middle-Income Countries", "y": "2023", "s": "Children", "d": "10.3390/children10060996"}, {"t": "Impact of Deferred Versus Continuous Sheep Grazing on Soil Compaction in the Mediterranean Montado Ecosystem", "y": "2023", "s": "AgriEngineering", "d": "10.3390/agriengineering5020047"}, {"t": "Muscle oxygenation is associated with bilateral strength asymmetry during isokinetic testing in sport teams; L'oxygénation musculaire est associée à une asymétrie de force bilatérale lors des tests isocinétiques dans les équipes sportives", "y": "2023", "s": "Science and Sports", "d": "10.1016/j.scispo.2022.03.014"}, {"t": "Microwave radiometer, sun-photometer and GNSS multi-comparison of integrated water vapor in Southwestern Europe", "y": "2023", "s": "Atmospheric Research", "d": "10.1016/j.atmosres.2023.106698"}, {"t": "Reuse of Pretreated Agro-Industrial Wastewaters for Hydroponic Production of Lettuce", "y": "2023", "s": "Water (Switzerland)", "d": "10.3390/w15101856"}, {"t": "Is Psychological Distress Associated with Self-Perceived Health, Perceived Social Support and Physical Activity Level in Spanish Adults with Diabetes?", "y": "2023", "s": "Journal of Personalized Medicine", "d": "10.3390/jpm13050739"}, {"t": "Machine olfaction discrimination of Spanish-style green olives inoculated with spoilage mold species", "y": "2023", "s": "Food Control", "d": "10.1016/j.foodcont.2022.109600"}, {"t": "Water Heritage in the Rural Hinterland Landscapes of the UNESCO Alto Douro Wine Region, Portugal: A Digital Humanities Approach", "y": "2023", "s": "Heritage", "d": "10.3390/heritage6040196"}, {"t": "Influence of Parental Perception of Child’s Physical Fitness on Body Image Satisfaction in Spanish Preschool Children", "y": "2023", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph20085534"}, {"t": "Translation, Cultural Adaptation, and Reliability of the 15D Portuguese Version: A Generic Health-Related Quality of Life (HRQoL) Instrument", "y": "2023", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare11081099"}, {"t": "A Bibliometric Analysis of Physical Literacy Studies in Relation to Health of Children and Adolescents", "y": "2023", "s": "Children", "d": "10.3390/children10040660"}, {"t": "Validity of On-Line Supervised Fitness Tests in People with Low Back Pain", "y": "2023", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare11071019"}, {"t": "Hemispheric Sunspot Numbers from the Astronomical Observatory of the University of Valencia (1940 – 1956)", "y": "2023", "s": "Solar Physics", "d": "10.1007/s11207-023-02143-4"}, {"t": "Depression, Anxiety and Antidepressants and Anxiolytics Use in Spanish Informal Caregivers according to the Physical Activity Frequency: EHSS 2014–2020", "y": "2023", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare11070990"}, {"t": "Attitudes towards Peers with Disabilities among Schoolchildren in Physical Education Classes", "y": "2023", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph20053802"}, {"t": "Inhibition of Myeloperoxidase Pro-Fibrotic Effect by Noscapine in Equine Endometrium", "y": "2023", "s": "International Journal of Molecular Sciences", "d": "10.3390/ijms24043593"}, {"t": "Effects of a Multicomponent Programme for Improving Physical and Psychological Health in Victims of Intimate Partner Violence: Study Protocol for a Randomised Control Trial", "y": "2023", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph20042815"}, {"t": "Differences in the Perception Regarding Inclusion Preparation among Teachers at Different Educational Stages", "y": "2023", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph20043420"}, {"t": "Descriptive Study of Attitudes towards Corporal Expression in Physical Education Students in a Region of Spain", "y": "2023", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare11040549"}, {"t": "Influence of Educational Specialty on Perceptions towards Corporal Expression of Prospective Teachers", "y": "2023", "s": "Children", "d": "10.3390/children10020337"}, {"t": "Acute Effects of a Session with The EXOPULSE Mollii Suit in a Fibromyalgia Patient: A Case Report", "y": "2023", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph20032209"}, {"t": "Validation of a Questionnaire to Analyze Teacher Training in Inclusive Education in the Area of Physical Education: The CEFI-R Questionnaire", "y": "2023", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph20032306"}, {"t": "The Frobenius Problem for Generalized Repunit Numerical Semigroups", "y": "2023", "s": "Mediterranean Journal of Mathematics", "d": "10.1007/s00009-022-02233-w"}, {"t": "Physical literacy in older adults: a scoping review protocol", "y": "2023", "s": "Frontiers in Public Health", "d": "10.3389/fpubh.2023.1217773"}, {"t": "Translation, Cultural Adaptation and Validation of Perceived Physical Literacy Instrument-Spanish Version (PPLI-Sp) for Adults", "y": "2023", "s": "Journal of Sports Science and Medicine", "d": "10.52082/jssm.2023.454"}, {"t": "Long-term care units: a Portuguese study about the functional profile", "y": "2023", "s": "Frontiers in Aging", "d": "10.3389/fragi.2023.1192718"}, {"t": "Rediscovering the observations of solar prominences from 1906 to 1957 recorded at the Madrid Astronomical Observatory", "y": "2023", "s": "Journal of Space Weather and Space Climate", "d": "10.1051/swsc/2023003"}, {"t": "The Behavior of Muscle Oxygen Saturation, Oxy and Deoxy Hemoglobin during a Fatigue Test in Fibromyalgia", "y": "2023", "s": "Biomedicines", "d": "10.3390/biomedicines11010132"}, {"t": "Heart Rate Variability in Elite International ITF Junior Davis Cup Tennis Players", "y": "2023", "s": "Biology", "d": "10.3390/biology12010017"}, {"t": "Sensing and Mapping the Effects of Cow Trampling on the Soil Compaction of the Montado Mediterranean Ecosystem", "y": "2023", "s": "Sensors", "d": "10.3390/s23020888"}, {"t": "Fibromyalgia, Pain, and Physical Activity: A Bibliometric Analysis", "y": "2023", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph20021335"}, {"t": "Test–Retest Reliability and Concurrent Validity of the 3 m Backward Walk Test under Single and Dual-Task Conditions in Women with Fibromyalgia", "y": "2023", "s": "Journal of Clinical Medicine", "d": "10.3390/jcm12010212"}, {"t": "An Active Retirement Programme, a Randomized Controlled Trial of a Sensorimotor Training Programme for Older Adults: A Study Protocol", "y": "2023", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare11010086"}, {"t": "Analyzing the Performance of Feature Selection on Regression Problems: A Case Study on Older Adults' Functional Profile", "y": "2023", "s": "IEEE Transactions on Emerging Topics in Computing", "d": "10.1109/TETC.2022.3181679"}, {"t": "Sex and Rural/Urban Centre Location as Determinants of Body Image Self-Perception in Preschoolers", "y": "2022", "s": "Children", "d": "10.3390/children9121952"}, {"t": "Physical Activity Reduces the Risk of Developing Diabetes and Diabetes Medication Use", "y": "2022", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare10122479"}, {"t": "Comparison of Glycosylated Haemoglobin, Blood Pressure, and Anthropometric Measurements Depending on Gender and Bodyweight State in Adolescents", "y": "2022", "s": "Children", "d": "10.3390/children9121922"}, {"t": "A Cross-Sectional Study on Physical Activity and Psychological Distress in Adults with Asthma", "y": "2022", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare10122469"}, {"t": "Bibliometric Analysis of Psychomotricity Research Trends: The Current Role of Childhood", "y": "2022", "s": "Children", "d": "10.3390/children9121836"}, {"t": "The role of natural science collections in the biomonitoring of environmental contaminants in apex predators in support of the EU’s zero pollution ambition", "y": "2022", "s": "Environmental Sciences Europe", "d": "10.1186/s12302-022-00670-8"}, {"t": "Impact of being physically active on the brain electrocortical activity, brain volumetry and performance in the Stroop color and word test in women with fibromyalgia", "y": "2022", "s": "Scientific Reports", "d": "10.1038/s41598-022-16903-y"}, {"t": "Seasonal variations of the relationships between measures of training monotony and strain in professional soccer players", "y": "2022", "s": "Scientific Reports", "d": "10.1038/s41598-022-15278-4"}, {"t": "Are acute:chronic workload ratios of perceived exertion and running based variables sensible to detect variations between player positions over the season? A soccer team study", "y": "2022", "s": "BMC Sports Science, Medicine and Rehabilitation", "d": "10.1186/s13102-022-00445-x"}, {"t": "The Bibliometric Analysis of Studies on Physical Literacy for a Healthy Life", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph192215211"}, {"t": "Neurophysiological Response of Adults with Cerebral Palsy during Inclusive Dance with Wheelchair", "y": "2022", "s": "Biology", "d": "10.3390/biology11111546"}, {"t": "Comparative Analysis of Pasture Soil Fertility in Semiarid Agro-Silvo-Pastoral Systems", "y": "2022", "s": "Agronomy", "d": "10.3390/agronomy12112711"}, {"t": "Physical Activity Frequency and Health-Related Quality of Life in Spanish Children and Adolescents with Asthma: A Cross-Sectional Study", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph192114611"}, {"t": "Does Physical Activity Reduce the Risk of Perceived Negative Health in the Smoking Population?", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph192114366"}, {"t": "Physical Activity Level, Depression, Anxiety, and Self-Perceived Health in Spanish Adults with Migraine: A Cross-Sectional Study", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph192113882"}, {"t": "Biomass Novel Adsorbents for Phenol and Mercury Removal", "y": "2022", "s": "Molecules", "d": "10.3390/molecules27217345"}, {"t": "Effect of Sheep Grazing, Stocking Rates and Dolomitic Limestone Application on the Floristic Composition of a Permanent Dryland Pasture, in the Montado Agroforestry System of Southern Portugal", "y": "2022", "s": "Animals", "d": "10.3390/ani12192506"}, {"t": "Iberian bees database; Base de datos de abejas ibeŕicas", "y": "2022", "s": "Ecosistemas", "d": "10.7818/ECOS.2380"}, {"t": "Relationship between anaerobic work capacity and critical oxygenation in athletes", "y": "2022", "s": "Revista Andaluza de Medicina del Deporte", "d": "10.33155/j.ramd.2022.09.001"}, {"t": "Heart Rate Variability and Salivary Biomarkers Differences between Fibromyalgia and Healthy Participants after an Exercise Fatigue Protocol: An Experimental Study", "y": "2022", "s": "Diagnostics", "d": "10.3390/diagnostics12092220"}, {"t": "Creativity in Recreational Figure Roller-Skating: A Pilot Study on the Psychological Benefits in School-Age Girls", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph191811407"}, {"t": "Associations between Physical Activity Level and Mental Health in the Spanish Population: A Cross-Sectional Study", "y": "2022", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare10081442"}, {"t": "A Cross-Sectional Study on the Associations between Physical Activity Level, Depression, and Anxiety in Smokers and Ex-Smokers", "y": "2022", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare10081403"}, {"t": "The Effect of Expertise during Simulated Flight Emergencies on the Autonomic Response and Operative Performance in Military Pilots", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph19159141"}, {"t": "Risk of Hypertension and Use of Antihypertensive Drugs in the Physically Active Population under-70 Years Old—Spanish Health Survey", "y": "2022", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare10071283"}, {"t": "Spanish Translation and Cultural Adaptation of the Canadian Assessment of Physical Literacy-2 (CAPL-2) Questionnaires", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph19148850"}, {"t": "Associations between Physical Activity Level and Health Services Use in Spanish Adults", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph19148867"}, {"t": "Relationship between Kinesiophobia and Mobility, Impact of the Disease, and Fear of Falling in Women with and without Fibromyalgia: A Cross-Sectional Study", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph19148257"}, {"t": "Relationship between the Sunspot Number and Active Day Fraction: An Application for the Maunder Minimum", "y": "2022", "s": "Astrophysical Journal", "d": "10.3847/1538-4357/ac7045"}, {"t": "Comparison between the Impacts of Memory and Arithmetic‐Based Dual Tasks on Physical Performance in Women with Fibromyalgia", "y": "2022", "s": "Biology", "d": "10.3390/biology11070947"}, {"t": "Impact of Basketball Match on the Pre-Competitive Anxiety and HRV of Youth Female Players", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph19137894"}, {"t": "Effects of Active Breaks on Physical Literacy: A Cross-Sectional Pilot Study in a Region of Spain", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph19137597"}, {"t": "Effects of a Physical Literacy Breaks (PLBreaks) Program on Physical Literacy and Body Composition in Portuguese Schoolchildren: A Study Protocol", "y": "2022", "s": "Biology", "d": "10.3390/biology11060910"}, {"t": "Effects of respiratory muscle training on respiratory efficiency and health-related quality of life in sedentary women with fibromyalgia: a randomised controlled trial", "y": "2022", "s": "Clinical and Experimental Rheumatology", "d": "10.55563/clinexprheumatol/0v55nh"}, {"t": "Test-Retest Reliability of Isokinetic Strength Measurements in Lower Limbs in Elderly", "y": "2022", "s": "Biology", "d": "10.3390/biology11060802"}, {"t": "Impact of HIIT Sessions with and without Cognitive Load on Cortical Arousal, Accuracy and Perceived Exertion in Amateur Tennis Players", "y": "2022", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare10050767"}, {"t": "A Technological Approach to Support Extensive Livestock Management in the Portuguese Montado Ecosystem", "y": "2022", "s": "Agronomy", "d": "10.3390/agronomy12051212"}, {"t": "Hemispheric Sunspot Number from the Madrid Astronomical Observatory for the Period 1935-1986", "y": "2022", "s": "Astrophysical Journal", "d": "10.3847/1538-4357/ac5dc6"}, {"t": "A Sunspot Catalog by Rafael Carrasco at the Madrid Astronomical Observatory for the Period 1931 – 1933", "y": "2022", "s": "Solar Physics", "d": "10.1007/s11207-022-01992-9"}, {"t": "Spanish Teachers’ Perceptions of Their Preparation for Inclusive Education: The Relationship between Age and Years of Teaching Experience", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph19095750"}, {"t": "A Cross-Sectional Study on Self-Perceived Health and Physical Activity Level in the Spanish Population", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph19095656"}, {"t": "Gender and Age Influence in Pre-Competitive and Post-Competitive Anxiety in Young Tennis Players", "y": "2022", "s": "Sustainability (Switzerland)", "d": "10.3390/su14094966"}, {"t": "A Cross-Sectional Study about the Associations between Physical Activity Level, Self-Perceived Health Perception and Mental Health in Informal Caregivers of Elderly or People with Chronic Conditions in Spain", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph19095320"}, {"t": "In-Season Microcycle Quantification of Professional Women Soccer Players—External, Internal and Wellness Measures", "y": "2022", "s": "Healthcare (Switzerland)", "d": "10.3390/healthcare10040695"}, {"t": "Management Zones in Pastures Based on Soil Apparent Electrical Conductivity and Altitude: NDVI, Soil and Biomass Sampling Validation", "y": "2022", "s": "Agronomy", "d": "10.3390/agronomy12040778"}, {"t": "Acute and Chronic Workload Ratios of Perceived Exertion, Global Positioning System, and Running-Based Variables Between Starters and Non-starters: A Male Professional Team Study", "y": "2022", "s": "Frontiers in Psychology", "d": "10.3389/fpsyg.2022.860888"}, {"t": "In-Season Quantification and Relationship of External and Internal Intensity, Sleep Quality, and Psychological or Physical Stressors of Semi-Professional Soccer Players", "y": "2022", "s": "Biology", "d": "10.3390/biology11030467"}, {"t": "Heart Rate Variability Monitoring during a Padel Match", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph19063623"}, {"t": "Level of Physical Activity and Its Relationship to Self-Perceived Physical Fitness in Peruvian Adolescents", "y": "2022", "s": "International Journal of Environmental Research and Public Health", "d": "10.3390/ijerph19031182"}, {"t": "Dissemination of responsible information in sport through websites; Divulgación de información responsable en el deporte a través de las páginas web", "y": "2022", "s": "Transinformacao", "d": "10.1590/2318-0889202234e220003"}, {"t": "The Influence of Surgical Mask on Heart Rate, Muscle Saturation of Oxygen, and Hemoglobin during Whole-Body Vibration Exercise", "y": "2022", "s": "BioMed Research International", "d": "10.1155/2022/3958554"}, {"t": "Benefits of Equine-Assisted Therapies in People with Multiple Sclerosis: A Systematic Review", "y": "2022", "s": "Evidence-based Complementary and Alternative Medicine", "d": "10.1155/2022/9656503"}]}, "u1_u7": {"a": "u1", "b": "u7", "aName": "Universidade de Évora", "bName": "Universitatea din Oradea", "articles": [{"t": "Global Roadkill Data: a dataset on terrestrial vertebrate mortality caused by collision with vehicles", "y": "2025", "s": "Scientific Data", "d": "10.1038/s41597-024-04207-x"}]}, "u1_u8": {"a": "u1", "b": "u8", "aName": "Universidade de Évora", "bName": "University of Gävle", "articles": [{"t": "Advancing inclusive mentorship and psychology in entrepreneurship", "y": "2025", "s": "Discover Psychology", "d": "10.1007/s44202-025-00353-4"}, {"t": "Help-seeking preferences and barriers for mental health problems among university students in Portugal, Germany, and Sweden", "y": "2025", "s": "Journal of Affective Disorders", "d": "10.1016/j.jad.2025.03.044"}, {"t": "Symptoms of anxiety and depression among health and social science students: A multicenter study", "y": "2025", "s": "Heliyon", "d": "10.1016/j.heliyon.2025.e41957"}]}, "u1_u6": {"a": "u1", "b": "u6", "aName": "Universidade de Évora", "bName": "Wroclaw University of Environmental and Life Sciences", "articles": [{"t": "Embryo developmental and morphokinetic patterns in the domestic cat (Felis catus): associations with maternal age and SRT1720 supplementation during oocyte in vitro maturation", "y": "2026", "s": "Theriogenology", "d": "10.1016/j.theriogenology.2026.118026"}, {"t": "What Drives Sustainable Development in Europe? A Panel and Fuzzy Analysis of Cohesion and Non-Cohesion Countries", "y": "2026", "s": "Sustainable Development", "d": "10.1002/sd.71226"}, {"t": "More Is Still Not Enough—What Is Necessary and Sufficient for Happiness?", "y": "2025", "s": "Sustainability (Switzerland)", "d": "10.3390/su17136121"}]}, "u0_u4": {"a": "u0", "b": "u4", "aName": "Universidad de Extremadura", "bName": "Università di Parma", "articles": [{"t": "Multimodal Mechanism of Antitumoral Ni(II) Thiosemicarbazones: Deep Mechanistic Understanding of ROS Dynamics, Albumin-Mediated Delivery, and DNA Targeting", "y": "2026", "s": "ACS Omega", "d": "10.1021/acsomega.5c12067"}, {"t": "Distinct volatile profiles of Metschnikowia pulcherrima L672 and Hanseniaspora uvarum L793 determine their antagonistic efficacy against Aspergillus flavus in a dried fig agar model", "y": "2026", "s": "International Journal of Food Microbiology", "d": "10.1016/j.ijfoodmicro.2026.111852"}, {"t": "Is it Possible to Adapt the Mediterranean Diet to Young People’s Lifestyle?", "y": "2026", "s": "Lecture Notes on Multidisciplinary Industrial Engineering", "d": "10.1007/978-3-032-19652-1_6"}, {"t": "Use of coarse recycled concrete aggregates and vitrified MSW ash in eco-concrete design", "y": "2023", "s": "", "d": "10.1201/9781003323020-297"}, {"t": "An overview of approaches and methodologies for supporting smallholders: ICT tools, blockchain, business models, sustainability indicators, simulation models", "y": "2022", "s": "Procedia Computer Science", "d": "10.1016/j.procs.2022.12.393"}]}, "u1_u4": {"a": "u1", "b": "u4", "aName": "Universidade de Évora", "bName": "Università di Parma", "articles": [{"t": "Subterranean environments contribute to three-quarters of classified ecosystem services", "y": "2026", "s": "Biological Reviews", "d": "10.1002/brv.70137"}, {"t": "Building a Portuguese coalition for biodiversity genomics", "y": "2024", "s": "NPJ Biodiversity", "d": "10.1038/s44185-024-00061-7"}, {"t": "Farmland expansion and intensification do not foster local food self-sufficiency. Insights from the Mediterranean area", "y": "2024", "s": "Journal of Environmental Management", "d": "10.1016/j.jenvman.2023.119769"}, {"t": "A quixotic view of spatial bias in modelling the distribution of species and their diversity", "y": "2023", "s": "NPJ Biodiversity", "d": "10.1038/s44185-023-00014-6"}]}, "u4_u3": {"a": "u4", "b": "u3", "aName": "Università di Parma", "bName": "Université d’Angers", "articles": [{"t": "Invasion Dynamics of the Alien Amphibian Xenopus laevis in France: Perspectives for Management", "y": "2024", "s": "Aquatic Conservation: Marine and Freshwater Ecosystems", "d": "10.1002/aqc.70000"}, {"t": "Minimal information for studies of extracellular vesicles (MISEV2023): From basic to advanced approaches", "y": "2024", "s": "Journal of Extracellular Vesicles", "d": "10.1002/jev2.12404"}, {"t": "Financial interbanking networks resilience under shocks propagation", "y": "2023", "s": "Annals of Operations Research", "d": "10.1007/s10479-022-04567-w"}]}, "u8_u4": {"a": "u8", "b": "u4", "aName": "University of Gävle", "bName": "Università di Parma", "articles": [{"t": "Improving sustainability teaching by grouping and interrelating pedagogical approaches and sustainability competences: Evidence from 15 Worldwide Higher Education Institutions", "y": "2023", "s": "Sustainable Development", "d": "10.1002/sd.2396"}, {"t": "Scoping good papers for organizations' sustainability in management and engineering research", "y": "2023", "s": "Frontiers in Sustainability", "d": "10.3389/frsus.2023.1148499"}, {"t": "Adopting sustainability competence-based education in academic disciplines: Insights from 13 higher education institutions", "y": "2022", "s": "Sustainable Development", "d": "10.1002/sd.2253"}]}, "u4_u6": {"a": "u4", "b": "u6", "aName": "Università di Parma", "bName": "Wroclaw University of Environmental and Life Sciences", "articles": [{"t": "Advances in soil arthropod identification: Integrating morphological, molecular, and AI-based approaches", "y": "2026", "s": "European Journal of Soil Biology", "d": "10.1016/j.ejsobi.2026.103812"}, {"t": "The interplay between body mass index, motivation for food consumption, and noncommunicable diseases in the European population: A cross-sectional study", "y": "2025", "s": "PLOS ONE", "d": "10.1371/journal.pone.0322454"}, {"t": "ReSurveyEurope: A database of resurveyed vegetation plots in Europe", "y": "2024", "s": "Journal of Vegetation Science", "d": "10.1111/jvs.13235"}]}, "u5_u3": {"a": "u5", "b": "u3", "aName": "Otto von Guericke Universität Magdeburg", "bName": "Université d’Angers", "articles": [{"t": "Nature and well-being in seven European cities: The moderating effect of connectedness to nature", "y": "2023", "s": "Applied Psychology: Health and Well-Being", "d": "10.1111/aphw.12390"}]}, "u1_u3": {"a": "u1", "b": "u3", "aName": "Universidade de Évora", "bName": "Université d’Angers", "articles": [{"t": "Validation of the Arabic-Language Version of the Laune-Slade Hallucinations Scale-Extended (LSHS-E) in Young General Population Adults", "y": "2026", "s": "Early Intervention in Psychiatry", "d": "10.1111/eip.70172"}]}, "u7_u3": {"a": "u7", "b": "u3", "aName": "Universitatea din Oradea", "bName": "Université d’Angers", "articles": [{"t": "Real-world EGFR testing practices for non-small-cell lung cancer by thoracic pathology laboratories across Europe", "y": "2023", "s": "ESMO Open", "d": "10.1016/j.esmoop.2023.101628"}]}, "u8_u3": {"a": "u8", "b": "u3", "aName": "University of Gävle", "bName": "Université d’Angers", "articles": [{"t": "Does Job Rotation Lead to Changes in Physical Exposure and Health? A Systematic Review of Studies Reporting Objective Exposure Data", "y": "2026", "s": "IISE Transactions on Occupational Ergonomics and Human Factors", "d": "10.1080/24725838.2025.2578449"}]}}};
+
+const svg = document.getElementById('map');
+const tooltip = document.getElementById('tooltip');
+const panelBody = document.getElementById('panelBody');
+const resetBtn = document.getElementById('resetBtn');
+const labelsLayer = document.getElementById('labelsLayer');
+
+let activeUid = null;
+let activeEdge = null;
+
+// ---------- Labels ----------
+function svgPoint(x, y) {
+  const pt = svg.createSVGPoint();
+  pt.x = x; pt.y = y;
+  return pt.matrixTransform(svg.getScreenCTM());
+}
+
+function buildLabels() {
+  labelsLayer.innerHTML = '';
+  Object.entries(DATA.unis).forEach(([uid, u]) => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class','node-tag');
+    g.setAttribute('data-uid', uid);
+    const dx = (u.x > 500) ? 14 : -14;
+    const anchor = (u.x > 500) ? 'start' : 'end';
+    const t1 = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t1.setAttribute('x', u.x + dx);
+    t1.setAttribute('y', u.y + 4);
+    t1.setAttribute('text-anchor', anchor);
+    t1.textContent = shortName(u.name);
+    g.appendChild(t1);
+    labelsLayer.appendChild(g);
+  });
+}
+
+function shortName(name) {
+  const map = {
+    'Universidad de Extremadura':'Univ. de Extremadura',
+    'Universidade de Évora':'Univ. de Évora',
+    'Atlantic Technological University':'Atlantic Tech. Univ. (IE)',
+    'Université d’Angers':'Univ. d’Angers',
+    'Università di Parma':'Univ. di Parma',
+    'Otto von Guericke Universität Magdeburg':'Otto von Guericke Univ.',
+    'Wroclaw University of Environmental and Life Sciences':'Wroclaw Univ. of Env. & Life Sci.',
+    'Universitatea din Oradea':'Univ. din Oradea',
+    'University of Gävle':'Univ. of Gävle'
+  };
+  return map[name] || name;
+}
+
+buildLabels();
+
+// ---------- Tooltip ----------
+function showTooltip(evt, text) {
+  tooltip.innerHTML = text;
+  tooltip.classList.add('show');
+  moveTooltip(evt);
+}
+function moveTooltip(evt) {
+  const wrap = document.querySelector('.map-wrap').getBoundingClientRect();
+  tooltip.style.left = (evt.clientX - wrap.left) + 'px';
+  tooltip.style.top = (evt.clientY - wrap.top) + 'px';
+}
+function hideTooltip() { tooltip.classList.remove('show'); }
+
+// ---------- Panel renderers ----------
+function renderOverview() {
+  panelBody.innerHTML = `
+    <h2>Overview</h2>
+    <p class="panel-sub">2022–2026 · EUGREEN alliance</p>
+    <div class="empty-state">
+      Nine European universities share <b style="color:var(--gold-soft)">246</b> articles co-authored between 2022 and 2026, spread across <b style="color:var(--gold-soft)">20</b> distinct co-authorship combinations.
+      <br><br>
+      By far the strongest link is <b style="color:var(--text)">Universidad de Extremadura ↔ Universidade de Évora</b>, with 191 shared articles.
+      <div class="hint">Click a university on the map to see who it collaborates with, or click a line directly to see the articles.</div>
+    </div>
+  `;
+}
+
+function renderUni(uid) {
+  const u = DATA.unis[uid];
+  panelBody.innerHTML = `
+    <span class="back-link" id="backToOverview">← Overview</span>
+    <h2>${u.name}</h2>
+    <p class="panel-sub">${u.ccName} · ${u.total} article${u.total===1?'':'s'} co-authored with the alliance</p>
+    <div class="search-box"><input type="text" id="partnerFilter" placeholder="Filter universities…"></div>
+    <ul class="partner-list" id="partnerList"></ul>
+  `;
+  document.getElementById('backToOverview').onclick = () => setActive(null);
+  const list = document.getElementById('partnerList');
+  function draw(filter) {
+    list.innerHTML = '';
+    u.partners
+      .filter(p => !filter || p.name.toLowerCase().includes(filter.toLowerCase()))
+      .forEach(p => {
+        const li = document.createElement('li');
+        li.className = 'partner-item';
+        const pu = DATA.unis[p.uid];
+        li.innerHTML = `<span><span class="pname">${p.name}</span><br><span class="pcc">${pu.ccName}</span></span><span class="pn">${p.n}</span>`;
+        li.onclick = () => setActiveEdge(edgeKeyOf(uid, p.uid));
+        list.appendChild(li);
+      });
+  }
+  draw('');
+  document.getElementById('partnerFilter').addEventListener('input', e => draw(e.target.value));
+}
+
+function edgeKeyOf(uidA, uidB) {
+  const k1 = uidA + '_' + uidB, k2 = uidB + '_' + uidA;
+  if (DATA.pairs[k1]) return k1;
+  if (DATA.pairs[k2]) return k2;
+  return null;
+}
+
+function renderEdge(edgeKey) {
+  const p = DATA.pairs[edgeKey];
+  if (!p) return;
+  const sorted = [...p.articles].sort((a,b) => (b.y||'0').localeCompare(a.y||'0'));
+  panelBody.innerHTML = `
+    <span class="back-link" id="backToOverview">← Overview</span>
+    <h2>${p.aName} <span style="color:var(--text-faint); font-style:italic;">&amp;</span> ${p.bName}</h2>
+    <p class="panel-sub">${p.articles.length} article${p.articles.length===1?'':'s'} published jointly</p>
+    <ul class="article-list" id="articleList"></ul>
+  `;
+  document.getElementById('backToOverview').onclick = () => setActive(null);
+  const list = document.getElementById('articleList');
+  sorted.forEach(a => {
+    const li = document.createElement('li');
+    li.className = 'article';
+    const doiLink = a.d ? `<a class="a-doi" href="https://doi.org/${encodeURIComponent(a.d)}" target="_blank" rel="noopener">doi.org/${a.d}</a>` : '';
+    li.innerHTML = `
+      <div class="a-title">${escapeHtml(a.t)}</div>
+      <div class="a-meta">
+        <span class="a-year">${a.y || 'n/d'}</span>
+        ${a.s ? '<span>· ' + escapeHtml(a.s) + '</span>' : ''}
+        ${doiLink ? '<span>· ' + doiLink + '</span>' : ''}
+      </div>`;
+    list.appendChild(li);
+  });
+}
+
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+// ---------- Interaction state ----------
+function setActive(uid) {
+  activeUid = uid;
+  activeEdge = null;
+  updateVisuals();
+  if (uid === null) {
+    renderOverview();
+  } else {
+    renderUni(uid);
+  }
+  resetBtn.classList.toggle('show', uid !== null);
+}
+
+function setActiveEdge(edgeKey) {
+  if (!edgeKey) return;
+  activeEdge = edgeKey;
+  const p = DATA.pairs[edgeKey];
+  activeUid = null;
+  updateVisuals();
+  renderEdge(edgeKey);
+  resetBtn.classList.add('show');
+}
+
+function updateVisuals() {
+  const nodes = document.querySelectorAll('.node');
+  const edges = document.querySelectorAll('.edge');
+
+  if (activeUid) {
+    const connected = new Set([activeUid]);
+    edges.forEach(e => {
+      const a = e.dataset.a, b = e.dataset.b;
+      if (a === activeUid || b === activeUid) {
+        connected.add(a); connected.add(b);
+        e.classList.add('lit'); e.classList.remove('dim','active');
+      } else {
+        e.classList.add('dim'); e.classList.remove('lit','active');
+      }
+    });
+    nodes.forEach(n => {
+      const uid = n.dataset.uid;
+      n.classList.toggle('active', uid === activeUid);
+      n.classList.toggle('dim', !connected.has(uid));
+    });
+  } else if (activeEdge) {
+    const p = DATA.pairs[activeEdge];
+    const connected = new Set([p.a, p.b]);
+    edges.forEach(e => {
+      const id = 'e_' + e.dataset.a + '_' + e.dataset.b;
+      e.classList.toggle('active', id === 'e_' + activeEdge);
+      e.classList.toggle('dim', id !== 'e_' + activeEdge);
+      e.classList.remove('lit');
+    });
+    nodes.forEach(n => {
+      const uid = n.dataset.uid;
+      n.classList.toggle('active', connected.has(uid));
+      n.classList.toggle('dim', !connected.has(uid));
+    });
+  } else {
+    edges.forEach(e => e.classList.remove('dim','lit','active'));
+    nodes.forEach(n => n.classList.remove('active','dim'));
+  }
+}
+
+// ---------- Wire up events ----------
+document.querySelectorAll('.node').forEach(n => {
+  const uid = n.dataset.uid;
+  n.addEventListener('click', (e) => { e.stopPropagation(); setActive(activeUid === uid ? null : uid); });
+  n.addEventListener('mouseenter', (e) => {
+    const u = DATA.unis[uid];
+    showTooltip(e, `<b>${u.name}</b><br>${u.ccName} · ${u.total} article${u.total===1?'':'s'} with the alliance`);
+  });
+  n.addEventListener('mousemove', moveTooltip);
+  n.addEventListener('mouseleave', hideTooltip);
+});
+
+document.querySelectorAll('.edge').forEach(e => {
+  const a = e.dataset.a, b = e.dataset.b, key = a + '_' + b;
+  e.addEventListener('click', (evt) => { evt.stopPropagation(); setActiveEdge(key); });
+  e.addEventListener('mouseenter', (evt) => {
+    const p = DATA.pairs[key];
+    showTooltip(evt, `<b>${p.aName}</b> &amp; <b>${p.bName}</b><br>${p.articles.length} article${p.articles.length===1?'':'s'} published jointly`);
+  });
+  e.addEventListener('mousemove', moveTooltip);
+  e.addEventListener('mouseleave', hideTooltip);
+});
+
+svg.addEventListener('click', () => setActive(null));
+resetBtn.addEventListener('click', () => setActive(null));
+
+renderOverview();
+</script>
+
+</body>
+</html>
